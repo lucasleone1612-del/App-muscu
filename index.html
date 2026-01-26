@@ -1,433 +1,294 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Save, Activity, TrendingUp, Scale, Calendar, 
-  ChevronDown, BarChart2, Dumbbell, History, 
-  Flame, Timer, BatteryCharging, ArrowRight,
-  Plus, Trash2, X, Settings, CheckCircle
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Elite Hybrid Training</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #000; color: #fff; -webkit-tap-highlight-color: transparent; }
+        .animate-fadeIn { animation: fadeIn 0.5s ease-out; }
+        .animate-slideIn { animation: slideIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module">
+        import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
+        import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
+        import { 
+            Save, Activity, TrendingUp, Scale, Calendar, 
+            ChevronDown, BarChart2, Dumbbell, History, 
+            Flame, BatteryCharging, ArrowRight,
+            Plus, Trash2, X, Settings
+        } from 'https://esm.sh/lucide-react@0.263.1';
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard'); 
-  const [selectedSessionType, setSelectedSessionType] = useState(null); 
-  
-  // --- DONNÉES UTILISATEUR & STATS ---
-  // On stocke le poids et la date de la dernière pesée séparément
-  const [userStats, setUserStats] = useState({ 
-    bodyWeight: '', 
-    lastWeighIn: null, // Date ISO
-    energy: 3 
-  });
-  
-  // Programmes par Défaut
-  const defaultPrograms = {
-    PUSH: {
-      id: 'PUSH',
-      title: "Séance Push (Pecs/Triceps)",
-      color: "from-blue-600 to-cyan-500",
-      exercises: [
-        { id: 'p1', name: 'Développé Couché Barre', sets: '6', reps: '5', target: 'Force/Masse' },
-        { id: 'p2', name: 'Développé Couché Incliné', sets: '3', reps: '10', target: 'Haut Pecs' },
-        { id: 'p3', name: 'Écarté Couché Haltères', sets: '3', reps: '10', target: 'Isolation' },
-        { id: 'p4', name: 'Extension Triceps Barre EZ', sets: '3', reps: '10', target: 'Triceps Masse' },
-        { id: 'p5', name: 'Développé Triceps', sets: '3', reps: '10', target: 'Finition' },
-      ]
-    },
-    PULL: {
-      id: 'PULL',
-      title: "Séance Pull (Dos/Biceps)",
-      color: "from-emerald-600 to-teal-500",
-      exercises: [
-        { id: 'pu1', name: 'Rowing Barre (Bent Over)', sets: '6', reps: '5', target: 'Épaisseur Dos' },
-        { id: 'pu2', name: 'Tirage Vertical (Lat Pull)', sets: '3', reps: '10', target: 'Largeur Dos' },
-        { id: 'pu3', name: 'Tractions', sets: '3', reps: '10', target: 'Poids du corps' },
-        { id: 'pu4', name: 'Curl Pupitre (Barre EZ)', sets: '3', reps: '10', target: 'Biceps Isolation' },
-        { id: 'pu5', name: 'Curl Incliné Haltères', sets: '3', reps: '10', target: 'Biceps Chef Long' },
-      ]
-    },
-    HYBRID: {
-      id: 'HYBRID',
-      title: "Séance Crossfit & Legs",
-      color: "from-orange-600 to-red-500",
-      isCircuit: true,
-      circuit: {
-        name: "Le Circuit Infernal",
-        description: "Enchaîner : Rowing / Soulevé de Terre / Crunch / Squat",
-        target: "Augmenter les tours chaque semaine"
-      },
-      isolation: [
-        { id: 'h1', name: 'Leg Curl (Ischios)', sets: '3', reps: '10', target: 'Isolation' },
-        { id: 'h2', name: 'Leg Extension (Quads)', sets: '3', reps: '10', target: 'Isolation' }
-      ]
-    }
-  };
+        function App() {
+            const [activeTab, setActiveTab] = useState('dashboard'); 
+            const [selectedSessionType, setSelectedSessionType] = useState(null); 
+            const [userStats, setUserStats] = useState({ bodyWeight: '', lastWeighIn: null, energy: 3 });
+            
+            const defaultPrograms = {
+                PUSH: { 
+                    id: 'PUSH', 
+                    title: "Séance Push (Pecs/Triceps)", 
+                    color: "from-blue-600 to-cyan-500", 
+                    exercises: [
+                        { id: 'p1', name: 'Développé Couché Barre', sets: '6', reps: '5', target: 'Force/Masse' },
+                        { id: 'p2', name: 'Développé Couché Incliné', sets: '3', reps: '10', target: 'Haut Pecs' },
+                        { id: 'p3', name: 'Écarté Couché Haltères', sets: '3', reps: '10', target: 'Isolation' },
+                        { id: 'p4', name: 'Extension Triceps Barre EZ', sets: '3', reps: '10', target: 'Triceps Masse' },
+                        { id: 'p5', name: 'Développé Triceps', sets: '3', reps: '10', target: 'Finition' }
+                    ]
+                },
+                PULL: { 
+                    id: 'PULL', 
+                    title: "Séance Pull (Dos/Biceps)", 
+                    color: "from-emerald-600 to-teal-500", 
+                    exercises: [
+                        { id: 'pu1', name: 'Rowing Barre (Bent Over)', sets: '6', reps: '5', target: 'Épaisseur Dos' },
+                        { id: 'pu2', name: 'Tirage Vertical (Lat Pull)', sets: '3', reps: '10', target: 'Largeur Dos' },
+                        { id: 'pu3', name: 'Tractions', sets: '3', reps: '10', target: 'Poids du corps' },
+                        { id: 'pu4', name: 'Curl Pupitre (Barre EZ)', sets: '3', reps: '10', target: 'Biceps Isolation' },
+                        { id: 'pu5', name: 'Curl Incliné Haltères', sets: '3', reps: '10', target: 'Biceps Chef Long' }
+                    ]
+                },
+                HYBRID: { 
+                    id: 'HYBRID', 
+                    title: "Séance Crossfit & Legs", 
+                    color: "from-orange-600 to-red-500", 
+                    isCircuit: true, 
+                    circuit: { name: "Le Circuit Infernal", description: "Enchaîner : Rowing / Soulevé de Terre / Crunch / Squat" }, 
+                    isolation: [
+                        { id: 'h1', name: 'Leg Curl (Ischios)', sets: '3', reps: '10', target: 'Isolation' },
+                        { id: 'h2', name: 'Leg Extension (Quads)', sets: '3', reps: '10', target: 'Isolation' }
+                    ]
+                }
+            };
 
-  const [customPrograms, setCustomPrograms] = useState({});
-  const allPrograms = { ...defaultPrograms, ...customPrograms };
+            const [customPrograms, setCustomPrograms] = useState({});
+            const allPrograms = { ...defaultPrograms, ...customPrograms };
+            const [inputs, setInputs] = useState({});
+            const [rpe, setRpe] = useState({}); 
+            const [circuitRounds, setCircuitRounds] = useState('');
+            const [history, setHistory] = useState([]);
+            const [showCreateModal, setShowCreateModal] = useState(false);
+            const [newSessionData, setNewSessionData] = useState({ title: '', exercises: [] });
+            const [tempExo, setTempExo] = useState({ name: '', sets: 3, reps: 10 });
 
-  // --- ÉTATS LOGIQUES ---
-  const [inputs, setInputs] = useState({});
-  const [rpe, setRpe] = useState({}); 
-  const [circuitRounds, setCircuitRounds] = useState('');
-  const [history, setHistory] = useState([]);
+            useEffect(() => {
+                const savedHistory = localStorage.getItem('eliteHybrid_history');
+                if (savedHistory) setHistory(JSON.parse(savedHistory));
+                const savedCustom = localStorage.getItem('eliteHybrid_customPrograms');
+                if (savedCustom) setCustomPrograms(JSON.parse(savedCustom));
+                const savedStats = localStorage.getItem('eliteHybrid_userStats');
+                if (savedStats) setUserStats(JSON.parse(savedStats));
+            }, []);
 
-  // Modales
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newSessionData, setNewSessionData] = useState({ title: '', exercises: [] });
-  const [tempExo, setTempExo] = useState({ name: '', sets: 3, reps: 10 });
+            useEffect(() => { 
+                localStorage.setItem('eliteHybrid_userStats', JSON.stringify(userStats)); 
+            }, [userStats]);
 
-  // --- CHARGEMENT / SAUVEGARDE ---
-  useEffect(() => {
-    const savedHistory = localStorage.getItem('eliteHybrid_history');
-    if (savedHistory) setHistory(JSON.parse(savedHistory));
-    else setHistory(generateDemoData());
+            const saveHistory = (newHistory) => { 
+                setHistory(newHistory); 
+                localStorage.setItem('eliteHybrid_history', JSON.stringify(newHistory)); 
+            };
 
-    const savedCustom = localStorage.getItem('eliteHybrid_customPrograms');
-    if (savedCustom) setCustomPrograms(JSON.parse(savedCustom));
+            const saveCustomPrograms = (newCustoms) => { 
+                setCustomPrograms(newCustoms); 
+                localStorage.setItem('eliteHybrid_customPrograms', JSON.stringify(newCustoms)); 
+            };
 
-    // Charger les stats utilisateur (Poids, etc.)
-    const savedStats = localStorage.getItem('eliteHybrid_userStats');
-    if (savedStats) setUserStats(JSON.parse(savedStats));
-  }, []);
+            const handleWeighIn = (weight) => { 
+                setUserStats({ ...userStats, bodyWeight: weight, lastWeighIn: new Date().toISOString() }); 
+            };
 
-  // Sauvegarder les stats dès qu'elles changent
-  useEffect(() => {
-    localStorage.setItem('eliteHybrid_userStats', JSON.stringify(userStats));
-  }, [userStats]);
+            const needsWeighIn = () => { 
+                if (!userStats.lastWeighIn || !userStats.bodyWeight) return true; 
+                return Math.ceil(Math.abs(new Date() - new Date(userStats.lastWeighIn)) / (1000 * 60 * 60 * 24)) > 7; 
+            };
 
-  const saveHistory = (newHistory) => {
-    setHistory(newHistory);
-    localStorage.setItem('eliteHybrid_history', JSON.stringify(newHistory));
-  };
+            const handleFinishSession = () => {
+                if (!selectedSessionType) return;
+                const prog = allPrograms[selectedSessionType];
+                const newLog = { 
+                    id: Date.now(), 
+                    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), 
+                    type: selectedSessionType, 
+                    typeLabel: prog.title, 
+                    bodyWeight: userStats.bodyWeight, 
+                    energy: userStats.energy, 
+                    exercises: [], 
+                    circuit: null 
+                };
+                
+                if (prog.isCircuit) {
+                    newLog.circuit = { rounds: parseFloat(circuitRounds) || 0 };
+                    newLog.exercises = prog.isolation.map(ex => ({ 
+                        id: ex.id, 
+                        name: ex.name, 
+                        weight: parseFloat(inputs[ex.id] || 0), 
+                        rpe: parseInt(rpe[ex.id] || 7) 
+                    }));
+                } else {
+                    newLog.exercises = prog.exercises.map(ex => ({ 
+                        id: ex.id, 
+                        name: ex.name, 
+                        weight: parseFloat(inputs[ex.id] || 0), 
+                        rpe: parseInt(rpe[ex.id] || 7) 
+                    }));
+                }
+                
+                saveHistory([...history, newLog]);
+                setInputs({}); 
+                setRpe({}); 
+                setCircuitRounds(''); 
+                setSelectedSessionType(null); 
+                setActiveTab('analysis'); 
+            };
 
-  const saveCustomPrograms = (newCustoms) => {
-    setCustomPrograms(newCustoms);
-    localStorage.setItem('eliteHybrid_customPrograms', JSON.stringify(newCustoms));
-  };
+            const addExerciseToNewSession = () => { 
+                if (!tempExo.name) return; 
+                setNewSessionData({ 
+                    ...newSessionData, 
+                    exercises: [...newSessionData.exercises, { ...tempExo, id: Date.now().toString() }] 
+                }); 
+                setTempExo({ name: '', sets: 3, reps: 10 }); 
+            };
 
-  // --- LOGIQUE PESÉE HEBDOMADAIRE ---
-  const handleWeighIn = (weight) => {
-    setUserStats({
-      ...userStats,
-      bodyWeight: weight,
-      lastWeighIn: new Date().toISOString()
-    });
-  };
+            const saveNewSession = () => { 
+                if (!newSessionData.title || newSessionData.exercises.length === 0) return alert("Il faut un titre et au moins un exercice !"); 
+                const newId = `CUSTOM_${Date.now()}`; 
+                saveCustomPrograms({ 
+                    ...customPrograms, 
+                    [newId]: { 
+                        id: newId, 
+                        title: newSessionData.title, 
+                        color: "from-purple-600 to-indigo-500", 
+                        isCircuit: false, 
+                        exercises: newSessionData.exercises.map(ex => ({ ...ex, target: 'Custom' })) 
+                    } 
+                }); 
+                setShowCreateModal(false); 
+                setNewSessionData({ title: '', exercises: [] }); 
+            };
 
-  const needsWeighIn = () => {
-    if (!userStats.lastWeighIn || !userStats.bodyWeight) return true;
-    const lastDate = new Date(userStats.lastWeighIn);
-    const now = new Date();
-    // Différence en jours
-    const diffTime = Math.abs(now - lastDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    return diffDays > 7;
-  };
+            const deleteCustomSession = (id, e) => { 
+                e.stopPropagation(); 
+                if (confirm("Supprimer ?")) { 
+                    const updated = { ...customPrograms }; 
+                    delete updated[id]; 
+                    saveCustomPrograms(updated); 
+                } 
+            };
 
-  // --- LOGIQUE FIN DE SÉANCE ---
-  const handleFinishSession = () => {
-    if (!selectedSessionType) return;
-    const prog = allPrograms[selectedSessionType];
-    
-    const newLog = {
-      id: Date.now(),
-      date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
-      type: selectedSessionType,
-      typeLabel: prog.title,
-      // On sauvegarde le poids actuel (même si pas mis à jour aujourd'hui) pour le suivi
-      bodyWeight: userStats.bodyWeight, 
-      energy: userStats.energy,
-      exercises: [],
-      circuit: null
-    };
+            const resetHistoryData = () => { 
+                if (confirm("Effacer l'historique ?")) saveHistory([]); 
+            };
 
-    if (prog.isCircuit) {
-       newLog.circuit = { rounds: parseFloat(circuitRounds) || 0 };
-       newLog.exercises = prog.isolation.map(ex => ({
-         id: ex.id, name: ex.name, weight: parseFloat(inputs[ex.id] || 0), rpe: parseInt(rpe[ex.id] || 7)
-       }));
-    } else {
-       newLog.exercises = prog.exercises.map(ex => ({
-         id: ex.id, name: ex.name, weight: parseFloat(inputs[ex.id] || 0), rpe: parseInt(rpe[ex.id] || 7)
-       }));
-    }
+            const renderDashboard = () => React.createElement("div", { className: "p-4 space-y-6 animate-fadeIn pb-24" },
+                needsWeighIn() ? 
+                React.createElement("div", { className: "bg-gradient-to-r from-pink-600 to-rose-500 p-5 rounded-2xl shadow-lg border border-pink-400/30" }, 
+                    React.createElement("h2", { className: "text-white font-bold flex items-center gap-2 mb-3" }, React.createElement(Scale, { className: "text-white" }), " Pesée Hebdo"), 
+                    React.createElement("div", { className: "flex gap-2" }, 
+                        React.createElement("input", { type: "number", placeholder: "Kg", className: "bg-white text-pink-600 font-bold rounded-lg p-2 w-24 text-center focus:outline-none", onBlur: (e) => e.target.value && handleWeighIn(e.target.value) }), 
+                        React.createElement("button", { className: "text-white text-xs underline opacity-80", onClick: () => handleWeighIn(userStats.bodyWeight || '0') }, "Plus tard")
+                    )
+                ) : 
+                React.createElement("div", { className: "flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-xl" }, 
+                    React.createElement("div", { className: "flex items-center gap-2 text-gray-400 text-sm" }, React.createElement(Scale, { size: 16 }), " Poids : ", React.createElement("span", { className: "text-white font-bold" }, userStats.bodyWeight, " kg")), 
+                    React.createElement("button", { onClick: () => setUserStats({...userStats, lastWeighIn: null}), className: "text-xs text-blue-500" }, "Modifier")
+                ),
+                React.createElement("div", { className: "bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden" }, 
+                    React.createElement("h2", { className: "text-white font-bold flex items-center gap-2 mb-4" }, React.createElement(BatteryCharging, { className: "text-emerald-400" }), " Forme du jour"), 
+                    React.createElement("input", { type: "range", min: "1", max: "5", value: userStats.energy, onChange: e => setUserStats({...userStats, energy: parseInt(e.target.value)}), className: "w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" }), 
+                    React.createElement("div", { className: "text-center text-emerald-400 font-bold mt-2 text-sm" }, `Niveau ${userStats.energy}/5`)
+                ),
+                React.createElement("div", { className: "space-y-3" }, 
+                    React.createElement("h3", { className: "text-gray-500 text-xs font-bold uppercase ml-1" }, "Mes Programmes"), 
+                    Object.entries(allPrograms).map(([key, prog]) => 
+                        React.createElement("div", { key: key, className: "relative group" }, 
+                            React.createElement("button", { onClick: () => { setSelectedSessionType(key); setActiveTab('session'); }, className: `w-full p-4 rounded-xl bg-gradient-to-r ${prog.color} text-white font-bold shadow-lg transform transition-all active:scale-95 flex justify-between items-center text-left` }, 
+                                React.createElement("div", null, React.createElement("span", null, prog.title), React.createElement("p", { className: "text-[10px] opacity-70 font-normal mt-1" }, prog.isCircuit ? "Circuit + Finition" : `${prog.exercises.length} Exercices`)), 
+                                React.createElement(ArrowRight, { className: "opacity-60" })
+                            ), 
+                            key.startsWith('CUSTOM') && React.createElement("button", { onClick: (e) => deleteCustomSession(key, e), className: "absolute top-2 right-2 p-2 bg-black/20 hover:bg-red-600/80 rounded-full text-white" }, React.createElement(Trash2, { size: 14 }))
+                        )
+                    ), 
+                    React.createElement("button", { onClick: () => setShowCreateModal(true), className: "w-full py-4 border-2 border-dashed border-slate-800 rounded-xl text-slate-500 hover:border-blue-500 hover:text-blue-400 flex items-center justify-center gap-2 font-bold" }, React.createElement(Plus, { size: 20 }), " Créer une séance")
+                )
+            );
 
-    saveHistory([...history, newLog]);
-    setInputs({});
-    setRpe({});
-    setCircuitRounds('');
-    setSelectedSessionType(null);
-    setActiveTab('analysis'); 
-  };
+            const renderSession = () => {
+                const prog = allPrograms[selectedSessionType];
+                if (!prog) return null;
+                return React.createElement("div", { className: "p-4 pb-24 animate-slideIn" },
+                    React.createElement("div", { className: "mb-6" }, React.createElement("button", { onClick: () => setSelectedSessionType(null), className: "text-xs text-gray-500 mb-2" }, "← Retour"), React.createElement("h2", { className: "text-2xl font-bold text-white leading-tight" }, prog.title)),
+                    React.createElement("div", { className: "space-y-4" }, 
+                        prog.isCircuit && React.createElement("div", { className: "bg-slate-900 border border-orange-900/50 p-5 rounded-xl shadow-lg" }, 
+                            React.createElement("h3", { className: "text-lg font-bold text-orange-400 flex items-center gap-2 mb-2" }, React.createElement(Flame, { fill: "currentColor" }), " ", prog.circuit.name), 
+                            React.createElement("div", { className: "bg-black/50 p-4 rounded-lg text-center" }, 
+                                React.createElement("label", { className: "text-xs text-gray-500 uppercase font-bold block mb-2" }, "Tours validés"), 
+                                React.createElement("input", { type: "number", value: circuitRounds, onChange: (e) => setCircuitRounds(e.target.value), placeholder: "0", className: "bg-transparent text-center text-4xl font-black text-white w-full focus:outline-none" })
+                            )
+                        ), 
+                        (prog.isCircuit ? prog.isolation : prog.exercises).map(ex => 
+                            React.createElement("div", { key: ex.id, className: "bg-slate-900 border border-slate-800 rounded-xl p-4" }, 
+                                React.createElement("div", { className: "flex justify-between items-center mb-3" }, React.createElement("h3", { className: "font-bold text-gray-200" }, ex.name), React.createElement("span", { className: "text-xs bg-slate-800 px-2 py-1 rounded text-gray-400" }, `${ex.sets}x${ex.reps}`)), 
+                                React.createElement("div", { className: "grid grid-cols-2 gap-4" }, 
+                                    React.createElement("div", null, React.createElement("label", { className: "text-[10px] text-gray-500 uppercase" }, "Charge"), React.createElement("input", { type: "number", value: inputs[ex.id] || '', onChange: (e) => setInputs({...inputs, [ex.id]: e.target.value}), className: "w-full bg-black border border-slate-700 rounded p-3 text-white font-bold mt-1" })), 
+                                    React.createElement("div", null, React.createElement("label", { className: "text-[10px] text-gray-500 uppercase" }, "RPE"), React.createElement("input", { type: "number", max: "10", value: rpe[ex.id] || '', onChange: (e) => setRpe({...rpe, [ex.id]: e.target.value}), className: "w-full bg-black border border-slate-700 rounded p-3 text-yellow-500 font-bold mt-1", placeholder: "7" }))
+                                )
+                            )
+                        )
+                    ),
+                    React.createElement("button", { onClick: handleFinishSession, className: "w-full mt-8 bg-white text-black font-black py-4 rounded-xl shadow-xl flex items-center justify-center gap-2 hover:bg-gray-200" }, React.createElement(Save, { size: 20 }), " TERMINER")
+                );
+            };
 
-  // --- FONCTIONS CRÉATION DE SÉANCE ---
-  const addExerciseToNewSession = () => {
-    if (!tempExo.name) return;
-    setNewSessionData({
-      ...newSessionData,
-      exercises: [...newSessionData.exercises, { ...tempExo, id: Date.now().toString() }]
-    });
-    setTempExo({ name: '', sets: 3, reps: 10 });
-  };
+            const renderAnalytics = () => {
+                const getProgression = (exoId) => history.filter(h => h.exercises && h.exercises.find(e => e.id === exoId)).map(h => ({ date: h.date, val: h.exercises.find(e => e.id === exoId).weight })).slice(-6);
+                const weightProgression = history.filter(h => h.bodyWeight).map(h => ({ date: h.date, val: h.bodyWeight })).slice(-6);
+                return React.createElement("div", { className: "p-4 space-y-6 pb-24 animate-fadeIn" }, 
+                    React.createElement("h2", { className: "text-2xl font-bold text-white mb-6" }, "Suivi Performance"), 
+                    weightProgression.length > 0 && React.createElement(ChartCard, { title: "Poids de Corps", color: "text-pink-400", data: weightProgression, unit: "kg" }), 
+                    React.createElement(ChartCard, { title: "Bench Press", color: "text-blue-400", data: getProgression('p1'), unit: "kg" }), 
+                    React.createElement(ChartCard, { title: "Rowing Barre", color: "text-emerald-400", data: getProgression('pu1'), unit: "kg" })
+                );
+            };
 
-  const saveNewSession = () => {
-    if (!newSessionData.title || newSessionData.exercises.length === 0) {
-      alert("Il faut un titre et au moins un exercice !"); return;
-    }
-    const newId = `CUSTOM_${Date.now()}`;
-    const newProgram = {
-      id: newId,
-      title: newSessionData.title,
-      color: "from-purple-600 to-indigo-500",
-      isCircuit: false,
-      exercises: newSessionData.exercises.map(ex => ({ ...ex, target: 'Custom' }))
-    };
-    saveCustomPrograms({ ...customPrograms, [newId]: newProgram });
-    setShowCreateModal(false);
-    setNewSessionData({ title: '', exercises: [] });
-  };
+            const renderHistory = () => React.createElement("div", { className: "p-4 space-y-4 pb-24" }, 
+                React.createElement("div", { className: "flex justify-between items-center mb-4" }, 
+                    React.createElement("h2", { className: "text-white font-bold text-xl" }, "Historique"), 
+                    React.createElement("button", { onClick: resetHistoryData, className: "text-red-500 text-xs flex items-center gap-1 border border-red-900 bg-red-900/10 px-3 py-2 rounded-lg" }, React.createElement(Trash2, { size: 14 }), " Reset")
+                ), 
+                history.length === 0 ? 
+                React.createElement("div", { className: "text-center text-gray-600 py-10" }, "Aucune séance.") : 
+                history.slice().reverse().map(h => React.createElement("div", { key: h.id, className: "bg-slate-900 p-4 rounded-xl border-l-4 border-slate-700" }, React.createElement("div", { className: "flex justify-between text-white font-bold" }, React.createElement("span", null, h.typeLabel || h.type), React.createElement("span", { className: "text-sm font-normal text-gray-400" }, h.date)), h.bodyWeight && React.createElement("div", { className: "text-xs text-pink-400 mt-1" }, "Poids: ", h.bodyWeight, "kg")))
+            );
 
-  const deleteCustomSession = (id, e) => {
-    e.stopPropagation();
-    if (confirm("Supprimer définitivement cette séance ?")) {
-      const updated = { ...customPrograms };
-      delete updated[id];
-      saveCustomPrograms(updated);
-    }
-  };
+            return React.createElement("div", { className: "min-h-screen bg-black text-slate-200 font-sans" },
+                React.createElement("div", { className: "bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-4 py-3 border-b border-slate-900 flex justify-between items-center" }, React.createElement("h1", { className: "font-black text-lg italic bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent" }, "ELITE HYBRID v4"), React.createElement("div", { className: "flex items-center gap-2" }, React.createElement("span", { className: "text-xs font-mono text-gray-500" }, new Date().toLocaleDateString()))),
+                React.createElement("div", { className: "mx-auto max-w-md" }, activeTab === 'dashboard' && !selectedSessionType && renderDashboard(), activeTab === 'session' && selectedSessionType && renderSession(), activeTab === 'analysis' && renderAnalytics(), activeTab === 'history' && renderHistory()),
+                showCreateModal && React.createElement("div", { className: "fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" }, React.createElement("div", { className: "bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 max-h-[90vh] overflow-y-auto" }, React.createElement("div", { className: "p-4 border-b border-slate-800 flex justify-between items-center sticky top-0 bg-slate-900 z-10" }, React.createElement("h3", { className: "text-white font-bold" }, "Nouvelle Séance"), React.createElement("button", { onClick: () => setShowCreateModal(false) }, React.createElement(X, { className: "text-gray-400" }))), React.createElement("div", { className: "p-4 space-y-4" }, React.createElement("div", null, React.createElement("label", { className: "text-xs text-gray-500 uppercase font-bold" }, "Nom"), React.createElement("input", { type: "text", placeholder: "Ex: Rappel Épaules", value: newSessionData.title, onChange: e => setNewSessionData({...newSessionData, title: e.target.value}), className: "w-full bg-black border border-slate-700 rounded p-3 text-white mt-1 focus:border-purple-500 outline-none" })), React.createElement("div", { className: "space-y-2" }, React.createElement("label", { className: "text-xs text-gray-500 uppercase font-bold" }, "Exercices (", newSessionData.exercises.length, ")"), newSessionData.exercises.map((ex, idx) => React.createElement("div", { key: idx, className: "bg-slate-800 p-2 rounded flex justify-between items-center text-sm" }, React.createElement("span", null, ex.name), React.createElement("span", { className: "text-gray-400 text-xs" }, ex.sets, "x", ex.reps)))), React.createElement("div", { className: "bg-slate-800/50 p-3 rounded-lg border border-slate-700" }, React.createElement("p", { className: "text-xs text-purple-400 mb-2 font-bold" }, "Ajouter un exercice"), React.createElement("input", { placeholder: "Nom (ex: Curl)", value: tempExo.name, onChange: e => setTempExo({...tempExo, name: e.target.value}), className: "w-full bg-black border border-slate-700 rounded p-2 text-white text-sm mb-2" }), React.createElement("div", { className: "flex gap-2" }, React.createElement("input", { placeholder: "Séries", type: "number", value: tempExo.sets, onChange: e => setTempExo({...tempExo, sets: e.target.value}), className: "w-1/2 bg-black border border-slate-700 rounded p-2 text-white text-sm" }), React.createElement("input", { placeholder: "Reps", type: "number", value: tempExo.reps, onChange: e => setTempExo({...tempExo, reps: e.target.value}), className: "w-1/2 bg-black border border-slate-700 rounded p-2 text-white text-sm" })), React.createElement("button", { onClick: addExerciseToNewSession, className: "w-full mt-2 bg-slate-700 text-white text-xs font-bold py-2 rounded hover:bg-slate-600" }, "+ Ajouter")), React.createElement("button", { onClick: saveNewSession, className: "w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl mt-4" }, "Sauvegarder")))),
+                !selectedSessionType && !showCreateModal && React.createElement("div", { className: "fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-900 p-2 flex justify-around pb-6 z-40" }, React.createElement(NavBtn, { icon: React.createElement(Activity, null), label: "Workout", active: activeTab === 'dashboard', onClick: () => setActiveTab('dashboard') }), React.createElement(NavBtn, { icon: React.createElement(TrendingUp, null), label: "Stats", active: activeTab === 'analysis', onClick: () => setActiveTab('analysis') }), React.createElement(NavBtn, { icon: React.createElement(History, null), label: "Journal", active: activeTab === 'history', onClick: () => setActiveTab('history') }))
+            );
+        }
 
-  const resetHistoryData = () => {
-    if (confirm("ATTENTION : Cela va effacer tout ton historique. Continuer ?")) saveHistory([]);
-  };
+        function NavBtn({ icon, label, active, onClick }) { return React.createElement("button", { onClick: onClick, className: `flex flex-col items-center p-2 rounded-lg transition-colors ${active ? 'text-white' : 'text-slate-600'}` }, React.cloneElement(icon, { size: 24 }), React.createElement("span", { className: "text-[10px] font-bold uppercase mt-1" }, label)); }
+        function ChartCard({ title, color, data, unit }) {
+            if (!data || data.length === 0) return null;
+            const maxVal = Math.max(...data.map(d => parseFloat(d.val))) || 1;
+            return React.createElement("div", { className: "bg-slate-900 p-5 rounded-2xl border border-slate-800" }, React.createElement("div", { className: "flex justify-between items-center mb-6" }, React.createElement("h3", { className: `font-bold ${color}` }, title), React.createElement("span", { className: "text-xs text-gray-500 bg-slate-950 px-2 py-1 rounded border border-slate-800" }, "Récent")), React.createElement("div", { className: "flex items-end justify-between h-32 gap-2" }, data.map((d, i) => { const height = (parseFloat(d.val) / maxVal) * 100; return React.createElement("div", { key: i, className: "flex-1 flex flex-col items-center gap-2 group" }, React.createElement("div", { style: { height: `${height}%` }, className: "w-full bg-slate-600 rounded-t-sm opacity-60 group-hover:opacity-100" }), React.createElement("span", { className: "text-[9px] text-gray-500" }, d.date)); })));
+        }
 
-  // --- VUES ---
-
-  // 1. DASHBOARD
-  const renderDashboard = () => (
-    <div className="p-4 space-y-6 animate-fadeIn pb-24">
-      
-      {/* 1. Carte PESÉE HEBDO (Apparaît seulement si besoin) */}
-      {needsWeighIn() ? (
-        <div className="bg-gradient-to-r from-pink-600 to-rose-500 p-5 rounded-2xl shadow-lg border border-pink-400/30">
-          <div className="flex justify-between items-center mb-3">
-             <h2 className="text-white font-bold flex items-center gap-2">
-               <Scale className="text-white" /> Pesée Hebdomadaire
-             </h2>
-             <span className="text-[10px] bg-white/20 px-2 py-1 rounded text-white">Requis</span>
-          </div>
-          <p className="text-xs text-pink-100 mb-3">Mettons à jour ton poids pour suivre ta prise de masse.</p>
-          <div className="flex gap-2">
-            <input 
-              type="number" placeholder="Kg" 
-              className="bg-white text-pink-600 font-bold rounded-lg p-2 w-24 text-center focus:outline-none"
-              onBlur={(e) => { if(e.target.value) handleWeighIn(e.target.value) }}
-            />
-            <button className="text-white text-xs underline opacity-80" onClick={() => handleWeighIn(userStats.bodyWeight || '0')}>Pas aujourd'hui</button>
-          </div>
-        </div>
-      ) : (
-        // Version Compacte (Juste info)
-        <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-xl">
-           <div className="flex items-center gap-2 text-gray-400 text-sm">
-             <Scale size={16} /> Poids actuel : <span className="text-white font-bold">{userStats.bodyWeight} kg</span>
-           </div>
-           <button onClick={() => setUserStats({...userStats, lastWeighIn: null})} className="text-xs text-blue-500">Modifier</button>
-        </div>
-      )}
-
-      {/* 2. Carte ÉNERGIE (Quotidien) */}
-      <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden">
-        <h2 className="text-white font-bold flex items-center gap-2 mb-4">
-          <BatteryCharging className="text-emerald-400" /> Forme du jour
-        </h2>
-        <div>
-           <div className="flex justify-between text-xs text-gray-500 mb-2"><span>Fatigué</span><span>En forme</span></div>
-           <input 
-             type="range" min="1" max="5" value={userStats.energy}
-             onChange={e => setUserStats({...userStats, energy: parseInt(e.target.value)})}
-             className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-           />
-           <div className="text-center text-emerald-400 font-bold mt-2 text-sm">
-             {userStats.energy === 5 ? "Machine de guerre 🔥" : userStats.energy === 1 ? "Besoin de repos 💤" : `Niveau ${userStats.energy}/5`}
-           </div>
-        </div>
-      </div>
-
-      {/* 3. Liste des Séances */}
-      <div className="space-y-3">
-        <h3 className="text-gray-500 text-xs font-bold uppercase ml-1">Mes Programmes</h3>
-        {Object.entries(allPrograms).map(([key, prog]) => (
-          <div key={key} className="relative group">
-            <button
-              onClick={() => { setSelectedSessionType(key); setActiveTab('session'); }}
-              className={`w-full p-4 rounded-xl bg-gradient-to-r ${prog.color} text-white font-bold shadow-lg transform transition-all active:scale-95 flex justify-between items-center text-left`}
-            >
-              <div>
-                <span>{prog.title}</span>
-                <p className="text-[10px] opacity-70 font-normal mt-1">
-                  {prog.isCircuit ? "Circuit + Finition" : `${prog.exercises.length} Exercices`}
-                </p>
-              </div>
-              <ArrowRight className="opacity-60" />
-            </button>
-            {key.startsWith('CUSTOM') && (
-              <button onClick={(e) => deleteCustomSession(key, e)} className="absolute top-2 right-2 p-2 bg-black/20 hover:bg-red-600/80 rounded-full text-white">
-                <Trash2 size={14} />
-              </button>
-            )}
-          </div>
-        ))}
-        <button onClick={() => setShowCreateModal(true)} className="w-full py-4 border-2 border-dashed border-slate-800 rounded-xl text-slate-500 hover:border-blue-500 hover:text-blue-400 flex items-center justify-center gap-2 font-bold">
-          <Plus size={20} /> Créer une séance
-        </button>
-      </div>
-    </div>
-  );
-
-  // 2. SÉANCE ACTIVE (Reste identique V3 mais utilise le userStats global)
-  const renderSession = () => {
-    const prog = allPrograms[selectedSessionType];
-    if (!prog) { setSelectedSessionType(null); return null; }
-
-    return (
-      <div className="p-4 pb-24 animate-slideIn">
-        <div className="mb-6">
-          <button onClick={() => setSelectedSessionType(null)} className="text-xs text-gray-500 mb-2">← Retour</button>
-          <h2 className="text-2xl font-bold text-white leading-tight">{prog.title}</h2>
-        </div>
-
-        <div className="space-y-4">
-          {prog.isCircuit && (
-            <div className="bg-slate-900 border border-orange-900/50 p-5 rounded-xl shadow-lg">
-              <h3 className="text-lg font-bold text-orange-400 flex items-center gap-2 mb-2">
-                <Flame fill="currentColor" /> {prog.circuit.name}
-              </h3>
-              <div className="bg-black/50 p-4 rounded-lg text-center">
-                <label className="text-xs text-gray-500 uppercase font-bold block mb-2">Tours validés</label>
-                <input 
-                  type="number" value={circuitRounds} onChange={(e) => setCircuitRounds(e.target.value)}
-                  placeholder="0" className="bg-transparent text-center text-4xl font-black text-white w-full focus:outline-none"
-                />
-              </div>
-            </div>
-          )}
-
-          {(prog.isCircuit ? prog.isolation : prog.exercises).map(ex => (
-            <div key={ex.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-bold text-gray-200">{ex.name}</h3>
-                <span className="text-xs bg-slate-800 px-2 py-1 rounded text-gray-400">{ex.sets} x {ex.reps}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] text-gray-500 uppercase">Charge (Kg)</label>
-                  <input type="number" value={inputs[ex.id] || ''} onChange={(e) => setInputs({...inputs, [ex.id]: e.target.value})} className="w-full bg-black border border-slate-700 rounded p-3 text-white font-bold mt-1" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-gray-500 uppercase">RPE</label>
-                  <input type="number" max="10" value={rpe[ex.id] || ''} onChange={(e) => setRpe({...rpe, [ex.id]: e.target.value})} className="w-full bg-black border border-slate-700 rounded p-3 text-yellow-500 font-bold mt-1" placeholder="7" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <button onClick={handleFinishSession} className="w-full mt-8 bg-white text-black font-black py-4 rounded-xl shadow-xl flex items-center justify-center gap-2 hover:bg-gray-200">
-          <Save size={20} /> TERMINER LA SÉANCE
-        </button>
-      </div>
-    );
-  };
-
-  // 3. ANALYTICS
-  const renderAnalytics = () => {
-    const getProgression = (exoId) => {
-      return history.filter(h => h.exercises && h.exercises.find(e => e.id === exoId))
-        .map(h => ({ date: h.date, val: h.exercises.find(e => e.id === exoId).weight })).slice(-6);
-    };
-
-    // Graphique Poids de Corps (Nouveau)
-    const weightProgression = history.filter(h => h.bodyWeight).map(h => ({ date: h.date, val: h.bodyWeight })).slice(-6);
-
-    return (
-      <div className="p-4 space-y-6 pb-24 animate-fadeIn">
-        <h2 className="text-2xl font-bold text-white mb-6">Suivi Performance</h2>
-        {/* Graphique Poids (si données) */}
-        {weightProgression.length > 0 && (
-             <ChartCard title="Poids de Corps" color="text-pink-400" data={weightProgression} unit="kg" />
-        )}
-        <ChartCard title="Bench Press" color="text-blue-400" data={getProgression('p1')} unit="kg" />
-        <ChartCard title="Rowing Barre" color="text-emerald-400" data={getProgression('pu1')} unit="kg" />
-      </div>
-    );
-  };
-
-  return (
-    <div className="min-h-screen bg-black text-slate-200 font-sans">
-      {/* Header */}
-      <div className="bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-4 py-3 border-b border-slate-900 flex justify-between items-center">
-        <h1 className="font-black text-lg italic bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent">ELITE HYBRID v4</h1>
-        <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-gray-500">{new Date().toLocaleDateString()}</span>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-md">
-        {activeTab === 'dashboard' && !selectedSessionType && renderDashboard()}
-        {activeTab === 'session' && selectedSessionType && renderSession()}
-        {activeTab === 'analysis' && renderAnalytics()}
-        {activeTab === 'history' && (
-            <div className="p-4 space-y-4 pb-24">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-white font-bold text-xl">Historique</h2>
-                    <button onClick={resetHistoryData} className="text-red-500 text-xs flex items-center gap-1 border border-red-900 bg-red-900/10 px-3 py-2 rounded-lg">
-                        <Trash2 size={14} /> Reset
-                    </button>
-                </div>
-                {history.length === 0 ? <div className="text-center text-gray-600 py-10">Aucune séance.</div> : history.slice().reverse().map(h => (
-                    <div key={h.id} className="bg-slate-900 p-4 rounded-xl border-l-4 border-slate-700">
-                        <div className="flex justify-between text-white font-bold">
-                            <span>{h.typeLabel || h.type}</span>
-                            <span className="text-sm font-normal text-gray-400">{h.date}</span>
-                        </div>
-                        {h.bodyWeight && <div className="text-xs text-pink-400 mt-1">Poids: {h.bodyWeight}kg</div>}
-                    </div>
-                ))}
-            </div>
-        )}
-      </div>
-
-      {/* Modal Création (Identique V3) */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b border-slate-800 flex justify-between items-center sticky top-0 bg-slate-900 z-10">
-              <h3 className="text-white font-bold">Nouvelle Séance</h3>
-              <button onClick={() => setShowCreateModal(false)}><X className="text-gray-400" /></button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div><label className="text-xs text-gray-500 uppercase font-bold">Nom</label><input type="text" placeholder="Ex: Rappel Épaules" value={newSessionData.title} onChange={e => setNewSessionData({...newSessionData, title: e.target.value})} className="w-full bg-black border border-slate-700 rounded p-3 text-white mt-1 focus:border-purple-500 outline-none"/></div>
-              <div className="space-y-2"><label className="text-xs text-gray-500 uppercase font-bold">Exercices ({newSessionData.exercises.length})</label>{newSessionData.exercises.map((ex, idx) => (<div key={idx} className="bg-slate-800 p-2 rounded flex justify-between items-center text-sm"><span>{ex.name}</span><span className="text-gray-400 text-xs">{ex.sets}x{ex.reps}</span></div>))}</div>
-              <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700"><p className="text-xs text-purple-400 mb-2 font-bold">Ajouter un exercice</p><input placeholder="Nom (ex: Curl)" value={tempExo.name} onChange={e => setTempExo({...tempExo, name: e.target.value})} className="w-full bg-black border border-slate-700 rounded p-2 text-white text-sm mb-2"/><div className="flex gap-2"><input placeholder="Séries" type="number" value={tempExo.sets} onChange={e => setTempExo({...tempExo, sets: e.target.value})} className="w-1/2 bg-black border border-slate-700 rounded p-2 text-white text-sm"/><input placeholder="Reps" type="number" value={tempExo.reps} onChange={e => setTempExo({...tempExo, reps: e.target.value})} className="w-1/2 bg-black border border-slate-700 rounded p-2 text-white text-sm"/></div><button onClick={addExerciseToNewSession} className="w-full mt-2 bg-slate-700 text-white text-xs font-bold py-2 rounded hover:bg-slate-600">+ Ajouter</button></div>
-              <button onClick={saveNewSession} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl mt-4">Sauvegarder la séance</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!selectedSessionType && !showCreateModal && (
-        <div className="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-900 p-2 flex justify-around pb-6 z-40">
-          <NavBtn icon={<Activity />} label="Workout" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-          <NavBtn icon={<TrendingUp />} label="Stats" active={activeTab === 'analysis'} onClick={() => setActiveTab('analysis')} />
-          <NavBtn icon={<History />} label="Journal" active={activeTab === 'history'} onClick={() => setActiveTab('history')} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NavBtn({ icon, label, active, onClick }) { return (<button onClick={onClick} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${active ? 'text-white' : 'text-slate-600'}`}>{React.cloneElement(icon, { size: 24 })}<span className="text-[10px] font-bold uppercase mt-1">{label}</span></button>); }
-function ChartCard({ title, color, data, unit }) {
-    if (!data || data.length === 0) return null;
-    const maxVal = Math.max(...data.map(d => parseFloat(d.val))) || 1;
-    return (<div className="bg-slate-900 p-5 rounded-2xl border border-slate-800"><div className="flex justify-between items-center mb-6"><h3 className={`font-bold ${color}`}>{title}</h3><span className="text-xs text-gray-500 bg-slate-950 px-2 py-1 rounded border border-slate-800">Récent</span></div><div className="flex items-end justify-between h-32 gap-2">{data.map((d, i) => { const height = (parseFloat(d.val) / maxVal) * 100; return (<div key={i} className="flex-1 flex flex-col items-center gap-2 group"><div style={{ height: `${height}%` }} className="w-full bg-slate-600 rounded-t-sm opacity-60 group-hover:opacity-100"></div><span className="text-[9px] text-gray-500">{d.date}</span></div>)})}</div></div>)
-}
-function generateDemoData() { return [{ id: 1, date: '01/01', type: 'PUSH', typeLabel: "Séance Push", exercises: [{id: 'p1', weight: 60}], bodyWeight: 75, energy: 4 }] }
+        const root = createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+    </script>
+</body>
+</html>
