@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Elite Hybrid Training</title>
+    
+    <!-- PWA Settings -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <!-- Manifest pour l'installation (Data URI pour rester sur un seul fichier) -->
+    <link rel="manifest" href='data:application/manifest+json;base64,eyJuYW1lIjoiRWxpdGUgSHlicmlkIFRyYWluaW5nIiwic2hvcnRfbmFtZSI6IkVsaXRlIEd5bSIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29xvciI6IiMwMDAwMDAiLCJ0aGVtZV9jb2xvciI6IiMwMDAwMDAiLCJpY29ucyI6W3sic3JjIjoiaHR0cHM6Ly9jZG4tanNkZWxpdnIubmV0L2doL2x1Y2lkZS1pY29ucy9sdWNpZGUvbG9nby5zdmciLCJzaXplcyI6IjUxMng1MTIiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCJ9XX0='>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
@@ -18,6 +26,80 @@
 </head>
 <body>
     <div id="root"></div>
+
+    <!-- Script pour le mode Offline (Service Worker intégré) -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                const CACHE_NAME = 'elite-gym-v1';
+                // Liste des fichiers externes à garder en mémoire
+                const urlsToCache = [
+                    'https://cdn.tailwindcss.com',
+                    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap',
+                    'https://esm.sh/react@18.2.0',
+                    'https://esm.sh/react-dom@18.2.0/client',
+                    'https://esm.sh/lucide-react@0.263.1'
+                ];
+
+                self.addEventListener('install', event => {
+                    self.skipWaiting();
+                    event.waitUntil(
+                        caches.open(CACHE_NAME).then(cache => {
+                            return Promise.all(
+                                urlsToCache.map(url => 
+                                    fetch(url, { mode: 'cors' }).then(res => {
+                                        if (res.ok) cache.put(url, res);
+                                    }).catch(e => console.log('Cache fail:', url))
+                                )
+                            );
+                        })
+                    );
+                });
+
+                self.addEventListener('fetch', event => {
+                    event.respondWith(
+                        caches.match(event.request).then(response => {
+                            if (response) return response;
+                            return fetch(event.request).then(networkResponse => {
+                                if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' && networkResponse.type !== 'cors') {
+                                    return networkResponse;
+                                }
+                                const responseToCache = networkResponse.clone();
+                                caches.open(CACHE_NAME).then(cache => {
+                                    if(event.request.url.startsWith('http')) {
+                                        cache.put(event.request, responseToCache);
+                                    }
+                                });
+                                return networkResponse;
+                            }).catch(() => null);
+                        })
+                    );
+                });
+            `;
+            
+            try {
+                const blob = new Blob([swCode], { type: 'text/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                
+                window.addEventListener('load', () => {
+                    // Vérification de sécurité pour éviter les erreurs en mode preview
+                    if (window.location.protocol === 'https:' || window.location.hostname === 'localhost') {
+                        navigator.serviceWorker.register(swUrl)
+                            .then(reg => console.log('SW enregistré (Ready for Offline)'))
+                            .catch(err => {
+                                // On ignore silencieusement les erreurs de protocole blob dans les iframes de preview
+                                if (!err.message.includes('protocol')) {
+                                    console.warn('SW Info:', err);
+                                }
+                            });
+                    }
+                });
+            } catch (e) {
+                console.log('Mode offline non supporté ici (pas grave, l\'app fonctionne)');
+            }
+        }
+    </script>
+
     <script type="module">
         import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
         import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
