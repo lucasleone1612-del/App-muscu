@@ -17,101 +17,100 @@
         body { font-family: 'Inter', sans-serif; background-color: #000; color: #fff; -webkit-tap-highlight-color: transparent; }
         .animate-fadeIn { animation: fadeIn 0.5s ease-out; }
         .animate-slideIn { animation: slideIn 0.3s ease-out; }
+        .animate-pop { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         input[type="number"] { -moz-appearance: textfield; }
+        input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         
-        #rescue-panel { display: none; padding: 20px; background: #111; color: white; min-height: 100vh; }
+        /* Error fallback style */
+        #error-fallback { display: none; padding: 20px; text-align: center; color: #ef4444; }
     </style>
 </head>
 <body>
     <div id="root"></div>
     
-    <!-- Panneau de Sauvetage Manuel -->
-    <div id="rescue-panel">
-        <h1 class="text-2xl font-bold text-red-500 mb-4">MODE SAUVETAGE 🚑</h1>
-        <p class="mb-4 text-sm text-gray-300">Des données ont été trouvées sur cet appareil. Copiez-les ci-dessous :</p>
-        <textarea id="rescue-data" class="w-full h-64 bg-gray-900 border border-gray-700 p-2 text-xs font-mono text-green-400 mb-4 rounded"></textarea>
-        <button onclick="copyRescueData()" class="w-full bg-blue-600 py-4 rounded font-bold mb-4">COPIER LES DONNÉES</button>
-        <button onclick="localStorage.clear(); window.location.reload();" class="w-full bg-red-900 py-2 rounded text-xs">Tout effacer et recommencer à zéro</button>
+    <!-- Zone de secours en cas de crash React -->
+    <div id="error-fallback">
+        <h2 class="text-xl font-bold mb-4">Oups, petit souci technique !</h2>
+        <p class="text-sm text-gray-400 mb-6">Les données sauvegardées semblent entrer en conflit avec la mise à jour.</p>
+        <button onclick="localStorage.clear(); window.location.reload();" class="bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg">
+            Réinitialiser l'application
+        </button>
     </div>
 
     <script>
-        // Fonction de secours globale
-        window.copyRescueData = function() {
-            const data = document.getElementById('rescue-data');
-            data.select();
-            document.execCommand('copy');
-            alert("Données copiées ! Va sur le VRAI lien et clique sur 'Importer'.");
-        }
-
-        // Détection automatique des vieilles données au démarrage
-        try {
-            const keys = ['eliteHybrid_history', 'elite_history', 'elite_programs'];
-            let foundData = {};
-            let hasData = false;
-            
-            keys.forEach(k => {
-                const item = localStorage.getItem(k);
-                if (item && item !== '[]' && item !== '{}') {
-                    foundData[k] = JSON.parse(item);
-                    hasData = true;
-                }
-            });
-
-            if (hasData) {
-                // Si React plante, on a au moins ça
-                document.getElementById('rescue-data').value = JSON.stringify(foundData);
-            }
-        } catch(e) { console.log('Rescue init failed'); }
-
-        // Si React ne se charge pas après 3s, on affiche le panneau de sauvetage
-        setTimeout(() => {
-            if (!document.getElementById('root').hasChildNodes() && document.getElementById('rescue-data').value) {
-                document.getElementById('root').style.display = 'none';
-                document.getElementById('rescue-panel').style.display = 'block';
-            }
-        }, 3000);
+        // Gestion globale des erreurs pour afficher le bouton de reset
+        window.onerror = function() {
+            document.getElementById('root').style.display = 'none';
+            document.getElementById('error-fallback').style.display = 'block';
+        };
 
         if ('serviceWorker' in navigator) {
-            // Version V13 pour reset le cache
-            const CACHE_NAME = 'elite-gym-v13-rescue';
-            self.addEventListener('install', e => self.skipWaiting());
-            self.addEventListener('activate', e => e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => k !== CACHE_NAME ? caches.delete(k) : null)))));
+            const swCode = `
+                // Changement de version pour forcer la mise à jour du cache
+                const CACHE_NAME = 'elite-gym-v10-repair';
+                const urlsToCache = [
+                    'https://cdn.tailwindcss.com',
+                    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap',
+                    'https://esm.sh/react@18.2.0',
+                    'https://esm.sh/react-dom@18.2.0/client',
+                    'https://esm.sh/lucide-react@0.263.1'
+                ];
+                self.addEventListener('install', event => { self.skipWaiting(); event.waitUntil(caches.open(CACHE_NAME).then(cache => Promise.all(urlsToCache.map(url => fetch(url, { mode: 'cors' }).then(res => { if (res.ok) cache.put(url, res); }).catch(e => console.log('Cache fail:', url)))))); });
+                self.addEventListener('fetch', event => { event.respondWith(caches.match(event.request).then(response => { if (response) return response; return fetch(event.request).then(networkResponse => { if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' && networkResponse.type !== 'cors') return networkResponse; const responseToCache = networkResponse.clone(); caches.open(CACHE_NAME).then(cache => { if(event.request.url.startsWith('http')) cache.put(event.request, responseToCache); }); return networkResponse; }).catch(() => null); })); });
+                // Nettoyage des anciens caches
+                self.addEventListener('activate', event => {
+                    event.waitUntil(
+                        caches.keys().then(cacheNames => {
+                            return Promise.all(
+                                cacheNames.map(cacheName => {
+                                    if (cacheName !== CACHE_NAME) {
+                                        return caches.delete(cacheName);
+                                    }
+                                })
+                            );
+                        })
+                    );
+                });
+            `;
+            try {
+                const blob = new Blob([swCode], { type: 'text/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                window.addEventListener('load', () => { if (window.location.protocol === 'https:' || window.location.hostname === 'localhost') { navigator.serviceWorker.register(swUrl).catch(e => {}); } });
+            } catch (e) {}
         }
     </script>
 
     <script type="module">
-        import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
+        import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@18.2.0';
         import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
         import { 
             Save, Activity, TrendingUp, TrendingDown, Scale, Calendar, 
             ChevronDown, ChevronUp, BarChart2, Dumbbell, History, 
             Flame, BatteryCharging, ArrowRight,
-            Plus, Trash2, X, Settings, Edit2, CheckCircle, Minus, Trophy, Database, Copy, Upload, AlertTriangle
+            Plus, Trash2, X, Settings, Edit2, CheckCircle, Minus, Trophy
         } from 'https://esm.sh/lucide-react@0.263.1';
 
         function App() {
-            // -- LOGIQUE DE MIGRATION INTELLIGENTE --
+            // -- RESTAURATION DONNÉES AVEC SÉCURITÉ --
             const [history, setHistory] = useState(() => {
                 try {
-                    // Priorité 1 : Données V8+
-                    const v8 = localStorage.getItem('elite_history');
-                    if (v8 && v8 !== '[]') return JSON.parse(v8);
-                    
-                    // Priorité 2 : Données V7 (Anciennes)
-                    const v7 = localStorage.getItem('eliteHybrid_history');
-                    if (v7 && v7 !== '[]') {
-                        console.log("Migration V7 -> V13 effectuée");
-                        return JSON.parse(v7);
-                    }
-                    return [];
+                    const newKey = localStorage.getItem('elite_history');
+                    if (newKey) return JSON.parse(newKey);
+                    const oldKey = localStorage.getItem('eliteHybrid_history');
+                    return oldKey ? JSON.parse(oldKey) : [];
                 } catch(e) { return []; }
             });
 
             const [userStats, setUserStats] = useState(() => {
-                try { return JSON.parse(localStorage.getItem('elite_userStats')) || { bodyWeight: '', lastWeighIn: null, energy: 3 }; } catch { return { bodyWeight: '', lastWeighIn: null, energy: 3 }; }
+                try {
+                    const saved = localStorage.getItem('elite_userStats');
+                    return saved ? JSON.parse(saved) : { bodyWeight: '', lastWeighIn: null, energy: 3 };
+                } catch(e) { return { bodyWeight: '', lastWeighIn: null, energy: 3 }; }
             });
 
             const [programs, setPrograms] = useState(() => {
@@ -135,22 +134,28 @@
                         { id: 'h2', name: 'Leg Extension', sets: '3', reps: '10', target: 'Quads' }
                     ]}
                 };
-                
+
                 try {
                     const saved = localStorage.getItem('elite_programs');
                     if (saved) {
-                        const parsed = JSON.parse(saved);
-                        if (!parsed.HYBRID) return { ...parsed, HYBRID: defaults.HYBRID };
-                        return parsed;
+                        const parsedSaved = JSON.parse(saved);
+                        // FUSION INTELLIGENTE : Si HYBRID manque dans la sauvegarde, on le remet depuis defaults
+                        if (!parsedSaved.HYBRID) {
+                            return { ...parsedSaved, HYBRID: defaults.HYBRID };
+                        }
+                        return parsedSaved;
                     }
-                } catch(e) {}
+                } catch(e) { console.log('Reset programs due to error'); }
+                
                 return defaults;
             });
 
-            // -- ÉTATS UI --
+            // -- ÉTATS INTERFACE --
             const [activeTab, setActiveTab] = useState('dashboard');
             const [selectedSessionType, setSelectedSessionType] = useState(() => localStorage.getItem('elite_selectedSessionType') || null);
-            const [sessionLogs, setSessionLogs] = useState(() => { try { return JSON.parse(localStorage.getItem('elite_currentSessionLogs')) || {}; } catch { return {}; } });
+            const [sessionLogs, setSessionLogs] = useState(() => {
+                try { return JSON.parse(localStorage.getItem('elite_currentSessionLogs')) || {}; } catch { return {}; }
+            });
             const [circuitRounds, setCircuitRounds] = useState(() => localStorage.getItem('elite_circuitRounds') || '');
             
             const [isEditMode, setIsEditMode] = useState(false);
@@ -161,8 +166,6 @@
             const [showSummary, setShowSummary] = useState(false);
             const [lastSessionSummary, setLastSessionSummary] = useState(null);
             const [analyticsExo, setAnalyticsExo] = useState(null);
-            const [showBackupModal, setShowBackupModal] = useState(false);
-            const [importString, setImportString] = useState("");
 
             // -- SAUVEGARDE --
             useEffect(() => { 
@@ -176,6 +179,7 @@
             useEffect(() => { localStorage.setItem('elite_history', JSON.stringify(history)); }, [history]);
 
             // -- LOGIQUE MÉTIER --
+
             const updateSetData = (exId, setIndex, field, value) => {
                 setSessionLogs(prev => {
                     const currentExLogs = prev[exId] ? [...prev[exId]] : [];
@@ -199,7 +203,7 @@
                 const currentBestVol = getBestSetVolume(currentLogs);
                 if (currentBestVol === 0) return null;
 
-                const lastSessionWithExo = history.slice().reverse().find(h => h.exercises && h.exercises.some(e => e.id === exId));
+                const lastSessionWithExo = history.slice().reverse().find(h => h.exercises.some(e => e.id === exId));
                 if (!lastSessionWithExo) return 'neutral'; 
 
                 const lastExoData = lastSessionWithExo.exercises.find(e => e.id === exId);
@@ -218,7 +222,7 @@
             const handleFinishSession = () => {
                 if (!selectedSessionType) return;
                 const prog = programs[selectedSessionType];
-                if (!prog) { setSelectedSessionType(null); return; }
+                if (!prog) { setSelectedSessionType(null); return; } // Sécurité anti-crash
                 let recordsBroken = 0;
                 
                 const processExercises = (exList) => {
@@ -226,8 +230,11 @@
                         const logs = sessionLogs[ex.id] || [];
                         const validLogs = logs.filter(l => l && (l.weight || l.reps));
                         const maxWeight = validLogs.length > 0 ? Math.max(...validLogs.map(l => parseFloat(l.weight) || 0)) : 0;
+                        
+                        // Check record
                         const status = getProgressionStatus(ex.id);
                         if (status === 'better') recordsBroken++;
+
                         return { id: ex.id, name: ex.name, setsData: validLogs, weight: maxWeight };
                     });
                 };
@@ -242,27 +249,53 @@
                     processedExercises = processExercises(prog.exercises || []);
                 }
 
-                const newLog = { id: Date.now(), date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), type: selectedSessionType, typeLabel: prog.title, bodyWeight: userStats.bodyWeight, energy: userStats.energy, exercises: processedExercises, circuit: circuitInfo };
+                const newLog = { 
+                    id: Date.now(), 
+                    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), 
+                    type: selectedSessionType, 
+                    typeLabel: prog.title, 
+                    bodyWeight: userStats.bodyWeight, 
+                    energy: userStats.energy, 
+                    exercises: processedExercises, 
+                    circuit: circuitInfo 
+                };
                 
                 const newHistory = [...history, newLog];
                 setHistory(newHistory);
-                setLastSessionSummary({ log: newLog, records: recordsBroken, mainExerciseId: processedExercises.length > 0 ? processedExercises[0].id : null });
+                
+                setLastSessionSummary({
+                    log: newLog,
+                    records: recordsBroken,
+                    mainExerciseId: processedExercises.length > 0 ? processedExercises[0].id : null
+                });
                 setShowSummary(true);
-                setSessionLogs({}); setCircuitRounds(''); setSelectedSessionType(null); localStorage.removeItem('elite_selectedSessionType'); 
+
+                setSessionLogs({}); 
+                setCircuitRounds(''); 
+                setSelectedSessionType(null); 
+                localStorage.removeItem('elite_selectedSessionType'); 
             };
 
             const handleCreateProgram = () => {
                 if (!newProgramTitle) return;
                 const newId = `PROG_${Date.now()}`;
-                const newProg = { id: newId, title: newProgramTitle, color: "from-purple-600 to-indigo-500", exercises: [] };
+                const newProg = { 
+                    id: newId, 
+                    title: newProgramTitle, 
+                    color: "from-purple-600 to-indigo-500", 
+                    exercises: [] 
+                };
                 setPrograms({ ...programs, [newId]: newProg });
-                setNewProgramTitle(""); setShowProgramModal(false);
+                setNewProgramTitle("");
+                setShowProgramModal(false);
             };
 
             const handleDeleteProgram = (progId, e) => {
                 e.stopPropagation();
-                if(confirm("Supprimer ce programme ?")) {
-                    const updated = { ...programs }; delete updated[progId]; setPrograms(updated);
+                if(confirm("Supprimer ce programme définitivement ?")) {
+                    const updated = { ...programs };
+                    delete updated[progId];
+                    setPrograms(updated);
                 }
             };
 
@@ -280,13 +313,18 @@
                 const updatedPrograms = { ...programs };
                 const prog = updatedPrograms[progId];
                 const newExo = { id: `new_${Date.now()}`, name: newExoName, sets: 3, reps: 10 };
-                if (prog.isCircuit) { if(!prog.isolation) prog.isolation = []; prog.isolation.push(newExo); } 
-                else prog.exercises.push(newExo);
-                setPrograms(updatedPrograms); setNewExoName("");
+                if (prog.isCircuit) {
+                    if(!prog.isolation) prog.isolation = [];
+                    prog.isolation.push(newExo);
+                } else {
+                    prog.exercises.push(newExo);
+                }
+                setPrograms(updatedPrograms);
+                setNewExoName("");
             };
 
             const removeExerciseFromProgram = (progId, exId) => {
-                if(!confirm("Supprimer ?")) return;
+                if(!confirm("Supprimer cet exercice ?")) return;
                 const updatedPrograms = { ...programs };
                 const prog = updatedPrograms[progId];
                 if (prog.isCircuit) prog.isolation = prog.isolation.filter(e => e.id !== exId);
@@ -298,47 +336,20 @@
             const needsWeighIn = () => { if (!userStats.lastWeighIn || !userStats.bodyWeight) return true; return Math.ceil(Math.abs(new Date() - new Date(userStats.lastWeighIn)) / (1000 * 60 * 60 * 24)) > 7; };
             const resetHistoryData = () => { if (confirm("Effacer tout l'historique ?")) setHistory([]); };
 
-            // IMPORT / EXPORT AVANCE (Fusionne V8 et V13)
-            const handleExport = () => {
-                // On récupère tout ce qui traîne
-                const legacy = localStorage.getItem('eliteHybrid_history');
-                const modern = localStorage.getItem('elite_history');
-                
-                let combinedHistory = [];
-                if (modern) combinedHistory = JSON.parse(modern);
-                if (legacy) {
-                    const legacyData = JSON.parse(legacy);
-                    // On ajoute seulement ce qui n'est pas déjà là (par ID)
-                    const ids = new Set(combinedHistory.map(h => h.id));
-                    legacyData.forEach(h => { if(!ids.has(h.id)) combinedHistory.push(h); });
-                }
-
-                const data = JSON.stringify({ history: combinedHistory, programs, userStats });
-                navigator.clipboard.writeText(data).then(() => alert("Données copiées ! Va sur le NOUVEAU lien."));
-            };
-
-            const handleImport = () => {
-                try {
-                    const data = JSON.parse(importString);
-                    if(data.history) setHistory(data.history);
-                    if(data.programs) setPrograms(data.programs);
-                    if(data.userStats) setUserStats(data.userStats);
-                    alert("Importation réussie !"); setShowBackupModal(false);
-                } catch(e) { alert("Format invalide"); }
-            };
-
             // --- VUES ---
+            
             const renderDashboard = () => React.createElement("div", { className: "p-4 space-y-6 animate-fadeIn pb-24" },
-                React.createElement("div", { className: "flex justify-between items-center bg-slate-900 border border-slate-800 p-3 rounded-xl" },
-                    React.createElement("h2", { className: "text-white font-bold flex items-center gap-2" }, React.createElement(Database, { size: 18, className: "text-blue-400" }), " Données"),
-                    React.createElement("button", { onClick: () => setShowBackupModal(true), className: "bg-blue-600 text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1" }, React.createElement(AlertTriangle, { size: 12 }), " Récupérer mes données")
-                ),
                 needsWeighIn() ? React.createElement("div", { className: "bg-gradient-to-r from-pink-600 to-rose-500 p-5 rounded-2xl shadow-lg border border-pink-400/30" }, React.createElement("h2", { className: "text-white font-bold flex items-center gap-2 mb-3" }, React.createElement(Scale, { className: "text-white" }), " Pesée Hebdo"), React.createElement("div", { className: "flex gap-2" }, React.createElement("input", { type: "number", placeholder: "Kg", className: "bg-white text-pink-600 font-bold rounded-lg p-2 w-24 text-center focus:outline-none", onBlur: (e) => e.target.value && handleWeighIn(e.target.value) }), React.createElement("button", { className: "text-white text-xs underline opacity-80", onClick: () => handleWeighIn(userStats.bodyWeight || '0') }, "Plus tard"))) : React.createElement("div", { className: "flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-xl" }, React.createElement("div", { className: "flex items-center gap-2 text-gray-400 text-sm" }, React.createElement(Scale, { size: 16 }), " Poids : ", React.createElement("span", { className: "text-white font-bold" }, userStats.bodyWeight, " kg")), React.createElement("button", { onClick: () => setUserStats({...userStats, lastWeighIn: null}), className: "text-xs text-blue-500" }, "Modifier")),
+                React.createElement("div", { className: "bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden" }, React.createElement("h2", { className: "text-white font-bold flex items-center gap-2 mb-4" }, React.createElement(BatteryCharging, { className: "text-emerald-400" }), " Forme du jour"), React.createElement("input", { type: "range", min: "1", max: "5", value: userStats.energy, onChange: e => setUserStats({...userStats, energy: parseInt(e.target.value)}), className: "w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" }), React.createElement("div", { className: "text-center text-emerald-400 font-bold mt-2 text-sm" }, `Niveau ${userStats.energy}/5`)),
                 React.createElement("div", { className: "space-y-3" }, 
-                    React.createElement("div", { className: "flex justify-between items-center" }, React.createElement("h3", { className: "text-gray-500 text-xs font-bold uppercase ml-1" }, "Mes Programmes"), React.createElement("button", { onClick: () => setShowProgramModal(true), className: "bg-blue-600/20 text-blue-400 p-1 rounded hover:bg-blue-600/40" }, React.createElement(Plus, { size: 16 }))),
+                    React.createElement("div", { className: "flex justify-between items-center" },
+                        React.createElement("h3", { className: "text-gray-500 text-xs font-bold uppercase ml-1" }, "Mes Programmes"),
+                        React.createElement("button", { onClick: () => setShowProgramModal(true), className: "bg-blue-600/20 text-blue-400 p-1 rounded hover:bg-blue-600/40" }, React.createElement(Plus, { size: 16 }))
+                    ),
                     Object.entries(programs).map(([key, prog]) => React.createElement("div", { key: key, className: "relative group" }, 
-                        React.createElement("button", { onClick: () => { setSelectedSessionType(key); setActiveTab('session'); }, className: `w-full p-4 rounded-xl bg-gradient-to-r ${prog.color} text-white font-bold shadow-lg flex justify-between items-center text-left` }, 
-                            React.createElement("div", null, React.createElement("span", null, prog.title), React.createElement("p", { className: "text-[10px] opacity-70 font-normal mt-1" }, prog.isCircuit ? "Circuit" : `${((prog.isCircuit ? prog.isolation : prog.exercises) || []).length} Exercices`)), React.createElement(ArrowRight, { className: "opacity-60" })
+                        React.createElement("button", { onClick: () => { setSelectedSessionType(key); setActiveTab('session'); }, className: `w-full p-4 rounded-xl bg-gradient-to-r ${prog.color} text-white font-bold shadow-lg transform transition-all active:scale-95 flex justify-between items-center text-left` }, 
+                            React.createElement("div", null, React.createElement("span", null, prog.title), React.createElement("p", { className: "text-[10px] opacity-70 font-normal mt-1" }, prog.isCircuit ? "Circuit" : `${((prog.isCircuit ? prog.isolation : prog.exercises) || []).length} Exercices`)), 
+                            React.createElement(ArrowRight, { className: "opacity-60" })
                         ),
                         React.createElement("button", { onClick: (e) => handleDeleteProgram(key, e), className: "absolute top-2 right-2 p-2 bg-black/20 hover:bg-red-600/80 rounded-full text-white" }, React.createElement(Trash2, { size: 14 }))
                     ))
@@ -349,9 +360,13 @@
                 const prog = programs[selectedSessionType];
                 if (!prog) return null;
                 const exercisesList = prog.isCircuit ? (prog.isolation || []) : (prog.exercises || []);
+
                 return React.createElement("div", { className: "p-4 pb-24 animate-slideIn" },
                     React.createElement("div", { className: "mb-6 flex justify-between items-start" }, 
-                        React.createElement("div", null, React.createElement("button", { onClick: () => { setSelectedSessionType(null); setIsEditMode(false); }, className: "text-xs text-gray-500 mb-2" }, "← Retour"), React.createElement("h2", { className: "text-2xl font-bold text-white leading-tight" }, prog.title)),
+                        React.createElement("div", null, 
+                            React.createElement("button", { onClick: () => { setSelectedSessionType(null); setIsEditMode(false); }, className: "text-xs text-gray-500 mb-2" }, "← Retour"), 
+                            React.createElement("h2", { className: "text-2xl font-bold text-white leading-tight" }, prog.title)
+                        ),
                         React.createElement("button", { onClick: () => setIsEditMode(!isEditMode), className: `p-2 rounded-full ${isEditMode ? 'bg-blue-600 text-white' : 'bg-slate-800 text-gray-400'}` }, React.createElement(Settings, { size: 18 }))
                     ),
                     React.createElement("div", { className: "space-y-6" }, 
@@ -429,8 +444,14 @@
                         React.createElement(Trophy, { size: 64, className: "text-yellow-400 animate-pop" }),
                         React.createElement("h2", { className: "text-3xl font-black text-white italic" }, "SÉANCE TERMINÉE"),
                         React.createElement("div", { className: "grid grid-cols-2 gap-4 w-full" },
-                            React.createElement("div", { className: "bg-slate-900 p-4 rounded-xl border border-slate-800" }, React.createElement("p", { className: "text-xs text-gray-500 uppercase" }, "Records"), React.createElement("p", { className: "text-2xl font-bold text-green-400" }, `+${records}`)),
-                            React.createElement("div", { className: "bg-slate-900 p-4 rounded-xl border border-slate-800" }, React.createElement("p", { className: "text-xs text-gray-500 uppercase" }, "Exercices"), React.createElement("p", { className: "text-2xl font-bold text-white" }, log.exercises.length))
+                            React.createElement("div", { className: "bg-slate-900 p-4 rounded-xl border border-slate-800" },
+                                React.createElement("p", { className: "text-xs text-gray-500 uppercase" }, "Records"),
+                                React.createElement("p", { className: "text-2xl font-bold text-green-400" }, `+${records}`)
+                            ),
+                            React.createElement("div", { className: "bg-slate-900 p-4 rounded-xl border border-slate-800" },
+                                React.createElement("p", { className: "text-xs text-gray-500 uppercase" }, "Exercices"),
+                                React.createElement("p", { className: "text-2xl font-bold text-white" }, log.exercises.length)
+                            )
                         ),
                         mainExerciseId && React.createElement("div", { className: "w-full" },
                             React.createElement("p", { className: "text-left text-sm text-gray-400 mb-2" }, "Progression sur l'exercice principal :"),
@@ -448,21 +469,6 @@
                     React.createElement("div", { className: "flex gap-2" },
                         React.createElement("button", { onClick: () => setShowProgramModal(false), className: "flex-1 text-slate-400 py-3" }, "Annuler"),
                         React.createElement("button", { onClick: handleCreateProgram, className: "flex-1 bg-blue-600 text-white font-bold rounded-xl py-3" }, "Créer")
-                    )
-                )
-            );
-
-            // BACKUP MODAL AVANCÉ
-            const renderBackupModal = () => React.createElement("div", { className: "fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-6" },
-                React.createElement("div", { className: "bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 space-y-6" },
-                    React.createElement("div", { className: "flex justify-between items-center" }, React.createElement("h3", { className: "text-white font-bold text-lg" }, "Sauvegarde & Transfert"), React.createElement("button", { onClick: () => setShowBackupModal(false) }, React.createElement(X, { className: "text-gray-400" }))),
-                    React.createElement("div", { className: "space-y-4" },
-                        React.createElement("button", { onClick: handleExport, className: "w-full bg-slate-800 hover:bg-slate-700 text-white p-4 rounded-xl flex items-center justify-between border border-slate-600" }, React.createElement("span", { className: "flex items-center gap-2" }, React.createElement(Copy, { size: 18 }), " 1. Copier mes données"), React.createElement("span", { className: "text-xs bg-blue-900 text-blue-300 px-2 py-1 rounded" }, "COPIER")),
-                        React.createElement("div", { className: "border-t border-slate-800 pt-4" },
-                            React.createElement("p", { className: "text-sm text-gray-400 mb-2" }, "2. Collez les données sur le nouveau lien :"),
-                            React.createElement("textarea", { value: importString, onChange: e => setImportString(e.target.value), className: "w-full bg-black border border-slate-700 rounded-xl p-3 text-xs text-gray-300 h-24 mb-2 font-mono", placeholder: "Collez le code ici..." }),
-                            React.createElement("button", { onClick: handleImport, className: "w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-xl flex items-center justify-center gap-2" }, React.createElement(Upload, { size: 18 }), " IMPORTER")
-                        )
                     )
                 )
             );
@@ -486,7 +492,7 @@
             );
 
             return React.createElement("div", { className: "min-h-screen bg-black text-slate-200 font-sans" },
-                React.createElement("div", { className: "bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-4 py-3 border-b border-slate-900 flex justify-between items-center" }, React.createElement("h1", { className: "font-black text-lg italic bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent" }, "ELITE HYBRID v13"), React.createElement("div", { className: "flex items-center gap-2" }, React.createElement("span", { className: "text-xs font-mono text-gray-500" }, new Date().toLocaleDateString()))),
+                React.createElement("div", { className: "bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-4 py-3 border-b border-slate-900 flex justify-between items-center" }, React.createElement("h1", { className: "font-black text-lg italic bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent" }, "ELITE HYBRID v10"), React.createElement("div", { className: "flex items-center gap-2" }, React.createElement("span", { className: "text-xs font-mono text-gray-500" }, new Date().toLocaleDateString()))),
                 React.createElement("div", { className: "mx-auto max-w-md" }, 
                     activeTab === 'dashboard' && !selectedSessionType && renderDashboard(), 
                     activeTab === 'session' && selectedSessionType && renderSession(), 
@@ -495,8 +501,7 @@
                 ),
                 showSummary && renderSummary(),
                 showProgramModal && renderCreateModal(),
-                showBackupModal && renderBackupModal(),
-                !selectedSessionType && !showSummary && !showProgramModal && !showBackupModal && React.createElement("div", { className: "fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-900 p-2 flex justify-around pb-6 z-40" }, React.createElement(NavBtn, { icon: React.createElement(Activity, null), label: "Workout", active: activeTab === 'dashboard', onClick: () => setActiveTab('dashboard') }), React.createElement(NavBtn, { icon: React.createElement(TrendingUp, null), label: "Stats", active: activeTab === 'analysis', onClick: () => setActiveTab('analysis') }), React.createElement(NavBtn, { icon: React.createElement(History, null), label: "Journal", active: activeTab === 'history', onClick: () => setActiveTab('history') }))
+                !selectedSessionType && !showSummary && !showProgramModal && React.createElement("div", { className: "fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-900 p-2 flex justify-around pb-6 z-40" }, React.createElement(NavBtn, { icon: React.createElement(Activity, null), label: "Workout", active: activeTab === 'dashboard', onClick: () => setActiveTab('dashboard') }), React.createElement(NavBtn, { icon: React.createElement(TrendingUp, null), label: "Stats", active: activeTab === 'analysis', onClick: () => setActiveTab('analysis') }), React.createElement(NavBtn, { icon: React.createElement(History, null), label: "Journal", active: activeTab === 'history', onClick: () => setActiveTab('history') }))
             );
         }
 
