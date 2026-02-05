@@ -16,89 +16,86 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #000; color: #fff; -webkit-tap-highlight-color: transparent; }
         .animate-fadeIn { animation: fadeIn 0.5s ease-out; }
+        .animate-slideIn { animation: slideIn 0.3s ease-out; }
+        .animate-pop { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         input[type="number"] { -moz-appearance: textfield; }
+        input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         
-        /* Style du bouton de secours (caché par défaut) */
-        #crash-recovery {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #1e1e1e;
-            padding: 30px;
-            border-radius: 20px;
-            border: 2px solid #ef4444;
-            text-align: center;
-            z-index: 9999;
-            width: 90%;
-            max-width: 400px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
+        #error-fallback { display: none; padding: 20px; text-align: center; color: #ef4444; }
     </style>
 </head>
 <body>
     <div id="root"></div>
-
-    <!-- Interface de Secours (Apparaît si React plante) -->
-    <div id="crash-recovery">
-        <h2 class="text-2xl font-bold text-white mb-4">⚠️ Problème détecté</h2>
-        <p class="text-gray-400 mb-6 text-sm">Les données de votre téléphone semblent corrompues, ce qui empêche l'application de démarrer.</p>
-        <button onclick="localStorage.clear(); window.location.reload();" class="w-full bg-red-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-transform">
-            RÉPARER L'APPLICATION
-            <br><span class="text-xs font-normal opacity-80">(Réinitialiser les données)</span>
+    
+    <div id="error-fallback">
+        <h2 class="text-xl font-bold mb-4">Oups, petit souci technique !</h2>
+        <p class="text-sm text-gray-400 mb-6">Les données sauvegardées semblent entrer en conflit.</p>
+        <button onclick="localStorage.clear(); window.location.reload();" class="bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg">
+            Réinitialiser l'application
         </button>
     </div>
 
-    <!-- Script de détection de crash -->
     <script>
-        // Si au bout de 2.5 secondes, l'appli n'est pas chargée, on affiche le bouton de secours
-        setTimeout(() => {
-            const root = document.getElementById('root');
-            if (!root.hasChildNodes()) {
-                document.getElementById('crash-recovery').style.display = 'block';
-            }
-        }, 2500);
+        window.onerror = function() {
+            document.getElementById('root').style.display = 'none';
+            document.getElementById('error-fallback').style.display = 'block';
+        };
 
         if ('serviceWorker' in navigator) {
-            // Changement de nom pour forcer le nettoyage du cache
-            const CACHE_NAME = 'elite-gym-v12-rescue';
-            self.addEventListener('install', e => self.skipWaiting());
-            self.addEventListener('activate', e => e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => k !== CACHE_NAME ? caches.delete(k) : null)))));
+            const swCode = `
+                const CACHE_NAME = 'elite-gym-v11-backup';
+                const urlsToCache = [
+                    'https://cdn.tailwindcss.com',
+                    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap',
+                    'https://esm.sh/react@18.2.0',
+                    'https://esm.sh/react-dom@18.2.0/client',
+                    'https://esm.sh/lucide-react@0.263.1'
+                ];
+                self.addEventListener('install', event => { self.skipWaiting(); event.waitUntil(caches.open(CACHE_NAME).then(cache => Promise.all(urlsToCache.map(url => fetch(url, { mode: 'cors' }).then(res => { if (res.ok) cache.put(url, res); }).catch(e => console.log('Cache fail:', url)))))); });
+                self.addEventListener('fetch', event => { event.respondWith(caches.match(event.request).then(response => { if (response) return response; return fetch(event.request).then(networkResponse => { if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' && networkResponse.type !== 'cors') return networkResponse; const responseToCache = networkResponse.clone(); caches.open(CACHE_NAME).then(cache => { if(event.request.url.startsWith('http')) cache.put(event.request, responseToCache); }); return networkResponse; }).catch(() => null); })); });
+                self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(cacheNames => Promise.all(cacheNames.map(cacheName => { if (cacheName !== CACHE_NAME) return caches.delete(cacheName); })))); });
+            `;
+            try {
+                const blob = new Blob([swCode], { type: 'text/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                window.addEventListener('load', () => { if (window.location.protocol === 'https:' || window.location.hostname === 'localhost') { navigator.serviceWorker.register(swUrl).catch(e => {}); } });
+            } catch (e) {}
         }
     </script>
 
     <script type="module">
-        import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
+        import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@18.2.0';
         import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
         import { 
             Save, Activity, TrendingUp, TrendingDown, Scale, Calendar, 
             ChevronDown, ChevronUp, BarChart2, Dumbbell, History, 
             Flame, BatteryCharging, ArrowRight,
-            Plus, Trash2, X, Settings, Edit2, CheckCircle, Minus, Trophy, Database, Copy, Upload
+            Plus, Trash2, X, Settings, Edit2, CheckCircle, Minus, Trophy, Download, Upload, Copy, Database
         } from 'https://esm.sh/lucide-react@0.263.1';
 
         function App() {
-            // -- RESTAURATION DONNÉES SÉCURISÉE (TRY/CATCH PARTOUT) --
-            const safeParse = (key, fallback) => {
-                try {
-                    const item = localStorage.getItem(key);
-                    return item ? JSON.parse(item) : fallback;
-                } catch (e) { 
-                    console.warn("Corrupted data for", key);
-                    return fallback; 
-                }
-            };
-
+            // -- RESTAURATION DONNÉES AVEC SÉCURITÉ --
             const [history, setHistory] = useState(() => {
-                const h = safeParse('elite_history', []);
-                if (h.length === 0) return safeParse('eliteHybrid_history', []); // Fallback V7
-                return h;
+                try {
+                    const newKey = localStorage.getItem('elite_history');
+                    if (newKey) return JSON.parse(newKey);
+                    const oldKey = localStorage.getItem('eliteHybrid_history');
+                    return oldKey ? JSON.parse(oldKey) : [];
+                } catch(e) { return []; }
             });
 
-            const [userStats, setUserStats] = useState(() => safeParse('elite_userStats', { bodyWeight: '', lastWeighIn: null, energy: 3 }));
-            
+            const [userStats, setUserStats] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('elite_userStats');
+                    return saved ? JSON.parse(saved) : { bodyWeight: '', lastWeighIn: null, energy: 3 };
+                } catch(e) { return { bodyWeight: '', lastWeighIn: null, energy: 3 }; }
+            });
+
             const [programs, setPrograms] = useState(() => {
                 const defaults = {
                     PUSH: { id: 'PUSH', title: "Séance Push", color: "from-blue-600 to-cyan-500", exercises: [
@@ -120,20 +117,24 @@
                         { id: 'h2', name: 'Leg Extension', sets: '3', reps: '10', target: 'Quads' }
                     ]}
                 };
-                
-                const saved = safeParse('elite_programs', null);
-                if (saved) {
-                    // Vérification de structure pour éviter écran blanc
-                    if (!saved.HYBRID) return { ...saved, HYBRID: defaults.HYBRID };
-                    return saved;
-                }
+
+                try {
+                    const saved = localStorage.getItem('elite_programs');
+                    if (saved) {
+                        const parsedSaved = JSON.parse(saved);
+                        if (!parsedSaved.HYBRID) return { ...parsedSaved, HYBRID: defaults.HYBRID };
+                        return parsedSaved;
+                    }
+                } catch(e) { console.log('Reset programs due to error'); }
                 return defaults;
             });
 
-            // -- ÉTATS UI --
+            // -- ÉTATS INTERFACE --
             const [activeTab, setActiveTab] = useState('dashboard');
             const [selectedSessionType, setSelectedSessionType] = useState(() => localStorage.getItem('elite_selectedSessionType') || null);
-            const [sessionLogs, setSessionLogs] = useState(() => safeParse('elite_currentSessionLogs', {}));
+            const [sessionLogs, setSessionLogs] = useState(() => {
+                try { return JSON.parse(localStorage.getItem('elite_currentSessionLogs')) || {}; } catch { return {}; }
+            });
             const [circuitRounds, setCircuitRounds] = useState(() => localStorage.getItem('elite_circuitRounds') || '');
             
             const [isEditMode, setIsEditMode] = useState(false);
@@ -145,9 +146,9 @@
             const [lastSessionSummary, setLastSessionSummary] = useState(null);
             const [analyticsExo, setAnalyticsExo] = useState(null);
             
-            // Modal Transfert
+            // Nouveau : Modal de sauvegarde
             const [showBackupModal, setShowBackupModal] = useState(false);
-            const [importString, setImportString] = useState("");
+            const [importDataString, setImportDataString] = useState("");
 
             // -- SAUVEGARDE --
             useEffect(() => { 
@@ -160,7 +161,8 @@
             useEffect(() => { localStorage.setItem('elite_programs', JSON.stringify(programs)); }, [programs]);
             useEffect(() => { localStorage.setItem('elite_history', JSON.stringify(history)); }, [history]);
 
-            // -- LOGIQUE --
+            // -- LOGIQUE MÉTIER --
+
             const updateSetData = (exId, setIndex, field, value) => {
                 setSessionLogs(prev => {
                     const currentExLogs = prev[exId] ? [...prev[exId]] : [];
@@ -184,7 +186,7 @@
                 const currentBestVol = getBestSetVolume(currentLogs);
                 if (currentBestVol === 0) return null;
 
-                const lastSessionWithExo = history.slice().reverse().find(h => h.exercises && h.exercises.some(e => e.id === exId));
+                const lastSessionWithExo = history.slice().reverse().find(h => h.exercises.some(e => e.id === exId));
                 if (!lastSessionWithExo) return 'neutral'; 
 
                 const lastExoData = lastSessionWithExo.exercises.find(e => e.id === exId);
@@ -241,9 +243,49 @@
                 const newHistory = [...history, newLog];
                 setHistory(newHistory);
                 
-                setLastSessionSummary({ log: newLog, records: recordsBroken, mainExerciseId: processedExercises.length > 0 ? processedExercises[0].id : null });
+                setLastSessionSummary({
+                    log: newLog,
+                    records: recordsBroken,
+                    mainExerciseId: processedExercises.length > 0 ? processedExercises[0].id : null
+                });
                 setShowSummary(true);
-                setSessionLogs({}); setCircuitRounds(''); setSelectedSessionType(null); localStorage.removeItem('elite_selectedSessionType'); 
+
+                setSessionLogs({}); 
+                setCircuitRounds(''); 
+                setSelectedSessionType(null); 
+                localStorage.removeItem('elite_selectedSessionType'); 
+            };
+
+            const handleCreateProgram = () => {
+                if (!newProgramTitle) return;
+                const newId = `PROG_${Date.now()}`;
+                const newProg = { 
+                    id: newId, 
+                    title: newProgramTitle, 
+                    color: "from-purple-600 to-indigo-500", 
+                    exercises: [] 
+                };
+                setPrograms({ ...programs, [newId]: newProg });
+                setNewProgramTitle("");
+                setShowProgramModal(false);
+            };
+
+            const handleDeleteProgram = (progId, e) => {
+                e.stopPropagation();
+                if(confirm("Supprimer ce programme définitivement ?")) {
+                    const updated = { ...programs };
+                    delete updated[progId];
+                    setPrograms(updated);
+                }
+            };
+
+            const updateExerciseName = (progId, exId, newName) => {
+                const updatedPrograms = { ...programs };
+                const prog = updatedPrograms[progId];
+                const list = prog.isCircuit ? prog.isolation : prog.exercises;
+                const exo = list.find(e => e.id === exId);
+                if (exo) exo.name = newName;
+                setPrograms(updatedPrograms);
             };
 
             const addExerciseToProgram = (progId) => {
@@ -251,13 +293,18 @@
                 const updatedPrograms = { ...programs };
                 const prog = updatedPrograms[progId];
                 const newExo = { id: `new_${Date.now()}`, name: newExoName, sets: 3, reps: 10 };
-                if (prog.isCircuit) { if(!prog.isolation) prog.isolation = []; prog.isolation.push(newExo); } 
-                else prog.exercises.push(newExo);
-                setPrograms(updatedPrograms); setNewExoName("");
+                if (prog.isCircuit) {
+                    if(!prog.isolation) prog.isolation = [];
+                    prog.isolation.push(newExo);
+                } else {
+                    prog.exercises.push(newExo);
+                }
+                setPrograms(updatedPrograms);
+                setNewExoName("");
             };
 
             const removeExerciseFromProgram = (progId, exId) => {
-                if(!confirm("Supprimer ?")) return;
+                if(!confirm("Supprimer cet exercice ?")) return;
                 const updatedPrograms = { ...programs };
                 const prog = updatedPrograms[progId];
                 if (prog.isCircuit) prog.isolation = prog.isolation.filter(e => e.id !== exId);
@@ -265,46 +312,68 @@
                 setPrograms(updatedPrograms);
             };
 
-            // IMPORT / EXPORT
-            const handleExport = () => {
-                const data = JSON.stringify({ history, programs, userStats });
-                navigator.clipboard.writeText(data).then(() => alert("Données copiées !"));
+            const handleWeighIn = (weight) => { setUserStats({ ...userStats, bodyWeight: weight, lastWeighIn: new Date().toISOString() }); };
+            const needsWeighIn = () => { if (!userStats.lastWeighIn || !userStats.bodyWeight) return true; return Math.ceil(Math.abs(new Date() - new Date(userStats.lastWeighIn)) / (1000 * 60 * 60 * 24)) > 7; };
+            const resetHistoryData = () => { if (confirm("Effacer tout l'historique ?")) setHistory([]); };
+
+            // --- FONCTIONS IMPORT / EXPORT ---
+            const exportData = () => {
+                const data = {
+                    history, programs, userStats
+                };
+                const dataStr = JSON.stringify(data);
+                navigator.clipboard.writeText(dataStr).then(() => alert("Données copiées ! Va sur le nouveau lien et clique sur 'Importer'."));
             };
 
-            const handleImport = () => {
+            const importData = () => {
                 try {
-                    const data = JSON.parse(importString);
-                    if(data.history) setHistory(data.history);
-                    if(data.programs) setPrograms(data.programs);
-                    if(data.userStats) setUserStats(data.userStats);
-                    alert("Succès !"); setShowBackupModal(false);
-                } catch(e) { alert("Format invalide"); }
+                    const data = JSON.parse(importDataString);
+                    if (data.history) setHistory(data.history);
+                    if (data.programs) setPrograms(data.programs);
+                    if (data.userStats) setUserStats(data.userStats);
+                    alert("Importation réussie !");
+                    setShowBackupModal(false);
+                } catch(e) {
+                    alert("Erreur : Le format des données est invalide.");
+                }
             };
 
             // --- VUES ---
+            
             const renderDashboard = () => React.createElement("div", { className: "p-4 space-y-6 animate-fadeIn pb-24" },
-                React.createElement("div", { className: "flex justify-between items-center bg-slate-900 border border-slate-800 p-3 rounded-xl" },
+                React.createElement("div", { className: "flex justify-between items-center bg-slate-900 border border-slate-800 p-3 rounded-xl" }, 
                     React.createElement("h2", { className: "text-white font-bold flex items-center gap-2" }, React.createElement(Database, { size: 18, className: "text-blue-400" }), " Données"),
-                    React.createElement("button", { onClick: () => setShowBackupModal(true), className: "bg-blue-600 text-white text-xs font-bold px-3 py-2 rounded-lg" }, "Sauvegarde/Transfert")
+                    React.createElement("button", { onClick: () => setShowBackupModal(true), className: "text-xs font-bold bg-blue-600 px-3 py-2 rounded-lg text-white" }, "Sauvegarde 💾")
                 ),
+                needsWeighIn() ? React.createElement("div", { className: "bg-gradient-to-r from-pink-600 to-rose-500 p-5 rounded-2xl shadow-lg border border-pink-400/30" }, React.createElement("h2", { className: "text-white font-bold flex items-center gap-2 mb-3" }, React.createElement(Scale, { className: "text-white" }), " Pesée Hebdo"), React.createElement("div", { className: "flex gap-2" }, React.createElement("input", { type: "number", placeholder: "Kg", className: "bg-white text-pink-600 font-bold rounded-lg p-2 w-24 text-center focus:outline-none", onBlur: (e) => e.target.value && handleWeighIn(e.target.value) }), React.createElement("button", { className: "text-white text-xs underline opacity-80", onClick: () => handleWeighIn(userStats.bodyWeight || '0') }, "Plus tard"))) : React.createElement("div", { className: "flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-xl" }, React.createElement("div", { className: "flex items-center gap-2 text-gray-400 text-sm" }, React.createElement(Scale, { size: 16 }), " Poids : ", React.createElement("span", { className: "text-white font-bold" }, userStats.bodyWeight, " kg")), React.createElement("button", { onClick: () => setUserStats({...userStats, lastWeighIn: null}), className: "text-xs text-blue-500" }, "Modifier")),
+                React.createElement("div", { className: "bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden" }, React.createElement("h2", { className: "text-white font-bold flex items-center gap-2 mb-4" }, React.createElement(BatteryCharging, { className: "text-emerald-400" }), " Forme du jour"), React.createElement("input", { type: "range", min: "1", max: "5", value: userStats.energy, onChange: e => setUserStats({...userStats, energy: parseInt(e.target.value)}), className: "w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" }), React.createElement("div", { className: "text-center text-emerald-400 font-bold mt-2 text-sm" }, `Niveau ${userStats.energy}/5`)),
                 React.createElement("div", { className: "space-y-3" }, 
-                    React.createElement("div", { className: "flex justify-between items-center" }, React.createElement("h3", { className: "text-gray-500 text-xs font-bold uppercase ml-1" }, "Mes Programmes"), React.createElement("button", { onClick: () => setShowProgramModal(true), className: "bg-blue-600/20 text-blue-400 p-1 rounded" }, React.createElement(Plus, { size: 16 }))),
+                    React.createElement("div", { className: "flex justify-between items-center" },
+                        React.createElement("h3", { className: "text-gray-500 text-xs font-bold uppercase ml-1" }, "Mes Programmes"),
+                        React.createElement("button", { onClick: () => setShowProgramModal(true), className: "bg-blue-600/20 text-blue-400 p-1 rounded hover:bg-blue-600/40" }, React.createElement(Plus, { size: 16 }))
+                    ),
                     Object.entries(programs).map(([key, prog]) => React.createElement("div", { key: key, className: "relative group" }, 
-                        React.createElement("button", { onClick: () => { setSelectedSessionType(key); setActiveTab('session'); }, className: `w-full p-4 rounded-xl bg-gradient-to-r ${prog.color} text-white font-bold shadow-lg flex justify-between items-center text-left` }, 
-                            React.createElement("div", null, React.createElement("span", null, prog.title), React.createElement("p", { className: "text-[10px] opacity-70 font-normal mt-1" }, prog.isCircuit ? "Circuit" : `${((prog.isCircuit ? prog.isolation : prog.exercises) || []).length} Exercices`)), React.createElement(ArrowRight, { className: "opacity-60" })
+                        React.createElement("button", { onClick: () => { setSelectedSessionType(key); setActiveTab('session'); }, className: `w-full p-4 rounded-xl bg-gradient-to-r ${prog.color} text-white font-bold shadow-lg transform transition-all active:scale-95 flex justify-between items-center text-left` }, 
+                            React.createElement("div", null, React.createElement("span", null, prog.title), React.createElement("p", { className: "text-[10px] opacity-70 font-normal mt-1" }, prog.isCircuit ? "Circuit" : `${((prog.isCircuit ? prog.isolation : prog.exercises) || []).length} Exercices`)), 
+                            React.createElement(ArrowRight, { className: "opacity-60" })
                         ),
-                        React.createElement("button", { onClick: (e) => { e.stopPropagation(); if(confirm("Supprimer ?")) { const u = {...programs}; delete u[key]; setPrograms(u); }}, className: "absolute top-2 right-2 p-2 bg-black/20 rounded-full text-white" }, React.createElement(Trash2, { size: 14 }))
+                        React.createElement("button", { onClick: (e) => handleDeleteProgram(key, e), className: "absolute top-2 right-2 p-2 bg-black/20 hover:bg-red-600/80 rounded-full text-white" }, React.createElement(Trash2, { size: 14 }))
                     ))
                 )
             );
 
+            // 2. SESSION
             const renderSession = () => {
                 const prog = programs[selectedSessionType];
                 if (!prog) return null;
                 const exercisesList = prog.isCircuit ? (prog.isolation || []) : (prog.exercises || []);
+
                 return React.createElement("div", { className: "p-4 pb-24 animate-slideIn" },
                     React.createElement("div", { className: "mb-6 flex justify-between items-start" }, 
-                        React.createElement("div", null, React.createElement("button", { onClick: () => { setSelectedSessionType(null); setIsEditMode(false); }, className: "text-xs text-gray-500 mb-2" }, "← Retour"), React.createElement("h2", { className: "text-2xl font-bold text-white leading-tight" }, prog.title)),
+                        React.createElement("div", null, 
+                            React.createElement("button", { onClick: () => { setSelectedSessionType(null); setIsEditMode(false); }, className: "text-xs text-gray-500 mb-2" }, "← Retour"), 
+                            React.createElement("h2", { className: "text-2xl font-bold text-white leading-tight" }, prog.title)
+                        ),
                         React.createElement("button", { onClick: () => setIsEditMode(!isEditMode), className: `p-2 rounded-full ${isEditMode ? 'bg-blue-600 text-white' : 'bg-slate-800 text-gray-400'}` }, React.createElement(Settings, { size: 18 }))
                     ),
                     React.createElement("div", { className: "space-y-6" }, 
@@ -315,7 +384,7 @@
                             return React.createElement("div", { key: ex.id, className: "bg-slate-900 border border-slate-800 rounded-xl overflow-hidden relative" },
                                 isEditMode && React.createElement("button", { onClick: () => removeExerciseFromProgram(selectedSessionType, ex.id), className: "absolute top-2 right-2 bg-red-900/80 text-white p-1 rounded-full z-10" }, React.createElement(Trash2, { size: 14 })),
                                 React.createElement("div", { className: "bg-slate-800/50 p-3 flex justify-between items-center" }, 
-                                    isEditMode ? React.createElement("input", { value: ex.name, onChange: (e) => { const u = {...programs}; (prog.isCircuit ? u[selectedSessionType].isolation : u[selectedSessionType].exercises).find(x => x.id === ex.id).name = e.target.value; setPrograms(u); }, className: "bg-black border border-slate-600 rounded p-1 text-sm text-white w-full mr-8" }) 
+                                    isEditMode ? React.createElement("input", { value: ex.name, onChange: (e) => updateExerciseName(selectedSessionType, ex.id, e.target.value), className: "bg-black border border-slate-600 rounded p-1 text-sm text-white w-full mr-8" }) 
                                     : React.createElement("div", { className: "flex items-center gap-2" }, React.createElement("h3", { className: "font-bold text-gray-200 text-sm" }, ex.name), status === 'better' && React.createElement(TrendingUp, { size: 16, className: "text-green-500" }), status === 'worse' && React.createElement(TrendingDown, { size: 16, className: "text-red-500" }), status === 'neutral' && React.createElement(Minus, { size: 16, className: "text-gray-500" })),
                                     !isEditMode && React.createElement("span", { className: "text-[10px] text-gray-400 bg-slate-800 px-2 py-1 rounded" }, `${ex.sets}x${ex.reps}`)
                                 ),
@@ -338,41 +407,111 @@
                 );
             };
 
-            // BACKUP MODAL
-            const renderBackupModal = () => React.createElement("div", { className: "fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-6" },
-                React.createElement("div", { className: "bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 space-y-6" },
-                    React.createElement("div", { className: "flex justify-between items-center" }, React.createElement("h3", { className: "text-white font-bold text-lg" }, "Transfert Données"), React.createElement("button", { onClick: () => setShowBackupModal(false) }, React.createElement(X, { className: "text-gray-400" }))),
-                    React.createElement("div", { className: "space-y-4" },
-                        React.createElement("button", { onClick: handleExport, className: "w-full bg-slate-800 hover:bg-slate-700 text-white p-4 rounded-xl flex items-center justify-between border border-slate-600" }, React.createElement("span", { className: "flex items-center gap-2" }, React.createElement(Copy, { size: 18 }), " Copier mes données"), React.createElement("span", { className: "text-xs bg-blue-900 text-blue-300 px-2 py-1 rounded" }, "COPIER")),
-                        React.createElement("div", { className: "border-t border-slate-800 pt-4" },
-                            React.createElement("p", { className: "text-sm text-gray-400 mb-2" }, "Coller ici pour restaurer :"),
-                            React.createElement("textarea", { value: importString, onChange: e => setImportString(e.target.value), className: "w-full bg-black border border-slate-700 rounded-xl p-3 text-xs text-gray-300 h-24 mb-2 font-mono", placeholder: "Collez le code..." }),
-                            React.createElement("button", { onClick: handleImport, className: "w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-xl flex items-center justify-center gap-2" }, React.createElement(Upload, { size: 18 }), " IMPORTER")
-                        )
-                    )
-                )
-            );
+            // 3. ANALYTICS
+            const renderAnalytics = () => {
+                const allExosInHistory = history.flatMap(h => h.exercises).reduce((acc, ex) => {
+                    if (!acc.some(e => e.id === ex.id)) acc.push({ id: ex.id, name: ex.name });
+                    return acc;
+                }, []);
 
-            // OTHER VUES (Summary, Analytics, History, etc... same logic)
+                if (!analyticsExo && allExosInHistory.length > 0) {
+                    setAnalyticsExo(allExosInHistory[allExosInHistory.length - 1].id);
+                }
+
+                const getProgression = (exoId) => history.filter(h => h.exercises && h.exercises.find(e => e.id === exoId)).map(h => {
+                    const exData = h.exercises.find(e => e.id === exoId);
+                    return { date: h.date, val: exData.weight || 0 };
+                });
+
+                return React.createElement("div", { className: "p-4 space-y-6 pb-24 animate-fadeIn" }, 
+                    React.createElement("h2", { className: "text-2xl font-bold text-white mb-6" }, "Suivi Performance"),
+                    allExosInHistory.length > 0 ? React.createElement("div", { className: "space-y-4" },
+                        React.createElement("div", { className: "relative" },
+                            React.createElement("select", { 
+                                className: "w-full bg-slate-900 text-white p-3 rounded-xl border border-slate-800 appearance-none font-bold",
+                                value: analyticsExo || '',
+                                onChange: (e) => setAnalyticsExo(e.target.value)
+                            }, allExosInHistory.map(ex => React.createElement("option", { key: ex.id, value: ex.id }, ex.name))),
+                            React.createElement(ChevronDown, { className: "absolute right-3 top-3.5 text-gray-400 pointer-events-none", size: 16 })
+                        ),
+                        analyticsExo && React.createElement(ChartCard, { title: "Charge Max (Kg)", color: "text-blue-400", data: getProgression(analyticsExo), unit: "kg" })
+                    ) : React.createElement("div", { className: "text-center text-gray-500 py-10" }, "Aucune donnée disponible. Termine une séance !")
+                );
+            };
+
             const renderSummary = () => {
                 if (!lastSessionSummary) return null;
+                const { log, records, mainExerciseId } = lastSessionSummary;
+                const getProgression = (exoId) => history.filter(h => h.exercises && h.exercises.find(e => e.id === exoId)).map(h => {
+                    const exData = h.exercises.find(e => e.id === exoId);
+                    return { date: h.date, val: exData.weight || 0 };
+                });
+
                 return React.createElement("div", { className: "fixed inset-0 bg-black/95 z-50 overflow-y-auto animate-fadeIn" },
                     React.createElement("div", { className: "p-6 min-h-screen flex flex-col items-center justify-center text-center space-y-6" },
                         React.createElement(Trophy, { size: 64, className: "text-yellow-400 animate-pop" }),
                         React.createElement("h2", { className: "text-3xl font-black text-white italic" }, "SÉANCE TERMINÉE"),
                         React.createElement("div", { className: "grid grid-cols-2 gap-4 w-full" },
-                            React.createElement("div", { className: "bg-slate-900 p-4 rounded-xl border border-slate-800" }, React.createElement("p", { className: "text-xs text-gray-500 uppercase" }, "Records"), React.createElement("p", { className: "text-2xl font-bold text-green-400" }, `+${lastSessionSummary.records}`)),
-                            React.createElement("div", { className: "bg-slate-900 p-4 rounded-xl border border-slate-800" }, React.createElement("p", { className: "text-xs text-gray-500 uppercase" }, "Exercices"), React.createElement("p", { className: "text-2xl font-bold text-white" }, lastSessionSummary.log.exercises.length))
+                            React.createElement("div", { className: "bg-slate-900 p-4 rounded-xl border border-slate-800" },
+                                React.createElement("p", { className: "text-xs text-gray-500 uppercase" }, "Records"),
+                                React.createElement("p", { className: "text-2xl font-bold text-green-400" }, `+${records}`)
+                            ),
+                            React.createElement("div", { className: "bg-slate-900 p-4 rounded-xl border border-slate-800" },
+                                React.createElement("p", { className: "text-xs text-gray-500 uppercase" }, "Exercices"),
+                                React.createElement("p", { className: "text-2xl font-bold text-white" }, log.exercises.length)
+                            )
+                        ),
+                        mainExerciseId && React.createElement("div", { className: "w-full" },
+                            React.createElement("p", { className: "text-left text-sm text-gray-400 mb-2" }, "Progression sur l'exercice principal :"),
+                            React.createElement(ChartCard, { title: "", color: "text-blue-400", data: getProgression(mainExerciseId), unit: "kg" })
                         ),
                         React.createElement("button", { onClick: () => { setShowSummary(false); setActiveTab('dashboard'); }, className: "w-full bg-white text-black font-black py-4 rounded-xl shadow-xl hover:bg-gray-200 mt-4" }, "RETOUR ACCUEIL")
                     )
                 );
             };
 
-            const renderAnalytics = () => React.createElement("div", { className: "p-4 pb-24" }, React.createElement("h2", { className: "text-2xl font-bold text-white mb-6" }, "Suivi"), React.createElement("div", { className: "text-center text-gray-500" }, "Complétez plus de séances pour voir les stats."));
-            
+            const renderCreateModal = () => React.createElement("div", { className: "fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" },
+                React.createElement("div", { className: "bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 space-y-4" },
+                    React.createElement("h3", { className: "text-white font-bold text-lg" }, "Nouveau Programme"),
+                    React.createElement("input", { placeholder: "Nom (ex: Jambes Lourd)", value: newProgramTitle, onChange: e => setNewProgramTitle(e.target.value), className: "w-full bg-black border border-slate-700 rounded p-3 text-white focus:border-blue-500 outline-none" }),
+                    React.createElement("div", { className: "flex gap-2" },
+                        React.createElement("button", { onClick: () => setShowProgramModal(false), className: "flex-1 text-slate-400 py-3" }, "Annuler"),
+                        React.createElement("button", { onClick: handleCreateProgram, className: "flex-1 bg-blue-600 text-white font-bold rounded-xl py-3" }, "Créer")
+                    )
+                )
+            );
+
+            // NOUVEAU : MODAL BACKUP
+            const renderBackupModal = () => React.createElement("div", { className: "fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-6" },
+                React.createElement("div", { className: "bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 space-y-6" },
+                    React.createElement("div", { className: "flex justify-between items-center" },
+                        React.createElement("h3", { className: "text-white font-bold text-lg" }, "Sauvegarde & Transfert"),
+                        React.createElement("button", { onClick: () => setShowBackupModal(false) }, React.createElement(X, { className: "text-gray-400" }))
+                    ),
+                    React.createElement("div", { className: "space-y-4" },
+                        React.createElement("p", { className: "text-sm text-gray-400" }, "Pour transférer vos données vers un nouveau lien ou un autre téléphone :"),
+                        React.createElement("button", { onClick: exportData, className: "w-full bg-slate-800 hover:bg-slate-700 text-white p-4 rounded-xl flex items-center justify-between border border-slate-600" },
+                            React.createElement("span", { className: "flex items-center gap-2" }, React.createElement(Copy, { size: 18 }), " 1. Copier mes données"),
+                            React.createElement("span", { className: "text-xs bg-blue-900 text-blue-300 px-2 py-1 rounded" }, "EXPORTER")
+                        ),
+                        React.createElement("div", { className: "border-t border-slate-800 pt-4" },
+                            React.createElement("p", { className: "text-sm text-gray-400 mb-2" }, "2. Collez les données ici sur le nouveau lien :"),
+                            React.createElement("textarea", { 
+                                value: importDataString, 
+                                onChange: e => setImportDataString(e.target.value),
+                                className: "w-full bg-black border border-slate-700 rounded-xl p-3 text-xs text-gray-300 h-24 mb-2 font-mono",
+                                placeholder: "Collez le code ici..."
+                            }),
+                            React.createElement("button", { onClick: importData, className: "w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-xl flex items-center justify-center gap-2" },
+                                React.createElement(Upload, { size: 18 }), " IMPORTER"
+                            )
+                        )
+                    )
+                )
+            );
+
             const renderHistory = () => React.createElement("div", { className: "p-4 space-y-4 pb-24" }, 
-                React.createElement("div", { className: "flex justify-between items-center mb-4" }, React.createElement("h2", { className: "text-white font-bold text-xl" }, "Historique"), React.createElement("button", { onClick: () => { if(confirm("Effacer ?")) setHistory([]); }, className: "text-red-500 text-xs flex items-center gap-1 border border-red-900 bg-red-900/10 px-3 py-2 rounded-lg" }, React.createElement(Trash2, { size: 14 }), " Reset")), 
+                React.createElement("div", { className: "flex justify-between items-center mb-4" }, React.createElement("h2", { className: "text-white font-bold text-xl" }, "Historique"), React.createElement("button", { onClick: resetHistoryData, className: "text-red-500 text-xs flex items-center gap-1 border border-red-900 bg-red-900/10 px-3 py-2 rounded-lg" }, React.createElement(Trash2, { size: 14 }), " Reset")), 
                 history.length === 0 ? React.createElement("div", { className: "text-center text-gray-600 py-10" }, "Aucune séance.") : 
                 history.slice().reverse().map(h => React.createElement("div", { key: h.id, className: "bg-slate-900 p-4 rounded-xl border-l-4 border-slate-700" }, 
                     React.createElement("div", { className: "flex justify-between items-center", onClick: () => setExpandedHistoryId(expandedHistoryId === h.id ? null : h.id) },
@@ -389,20 +528,8 @@
                 ))
             );
 
-            // Création Programme Modal
-            const renderCreateModal = () => React.createElement("div", { className: "fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" },
-                React.createElement("div", { className: "bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 space-y-4" },
-                    React.createElement("h3", { className: "text-white font-bold text-lg" }, "Nouveau Programme"),
-                    React.createElement("input", { placeholder: "Nom (ex: Jambes Lourd)", value: newProgramTitle, onChange: e => setNewProgramTitle(e.target.value), className: "w-full bg-black border border-slate-700 rounded p-3 text-white focus:border-blue-500 outline-none" }),
-                    React.createElement("div", { className: "flex gap-2" },
-                        React.createElement("button", { onClick: () => setShowProgramModal(false), className: "flex-1 text-slate-400 py-3" }, "Annuler"),
-                        React.createElement("button", { onClick: () => { if(!newProgramTitle) return; const id=`PROG_${Date.now()}`; setPrograms({...programs, [id]: {id, title: newProgramTitle, color: "from-purple-600 to-indigo-500", exercises: []}}); setNewProgramTitle(""); setShowProgramModal(false); }, className: "flex-1 bg-blue-600 text-white font-bold rounded-xl py-3" }, "Créer")
-                    )
-                )
-            );
-
             return React.createElement("div", { className: "min-h-screen bg-black text-slate-200 font-sans" },
-                React.createElement("div", { className: "bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-4 py-3 border-b border-slate-900 flex justify-between items-center" }, React.createElement("h1", { className: "font-black text-lg italic bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent" }, "ELITE HYBRID v12"), React.createElement("div", { className: "flex items-center gap-2" }, React.createElement("span", { className: "text-xs font-mono text-gray-500" }, new Date().toLocaleDateString()))),
+                React.createElement("div", { className: "bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-4 py-3 border-b border-slate-900 flex justify-between items-center" }, React.createElement("h1", { className: "font-black text-lg italic bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent" }, "ELITE HYBRID v11"), React.createElement("div", { className: "flex items-center gap-2" }, React.createElement("span", { className: "text-xs font-mono text-gray-500" }, new Date().toLocaleDateString()))),
                 React.createElement("div", { className: "mx-auto max-w-md" }, 
                     activeTab === 'dashboard' && !selectedSessionType && renderDashboard(), 
                     activeTab === 'session' && selectedSessionType && renderSession(), 
