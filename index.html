@@ -25,15 +25,34 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         input[type="number"] { -moz-appearance: textfield; }
         input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        /* Error fallback style */
+        #error-fallback { display: none; padding: 20px; text-align: center; color: #ef4444; }
     </style>
 </head>
 <body>
     <div id="root"></div>
+    
+    <!-- Zone de secours en cas de crash React -->
+    <div id="error-fallback">
+        <h2 class="text-xl font-bold mb-4">Oups, petit souci technique !</h2>
+        <p class="text-sm text-gray-400 mb-6">Les données sauvegardées semblent entrer en conflit avec la mise à jour.</p>
+        <button onclick="localStorage.clear(); window.location.reload();" class="bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg">
+            Réinitialiser l'application
+        </button>
+    </div>
 
     <script>
+        // Gestion globale des erreurs pour afficher le bouton de reset
+        window.onerror = function() {
+            document.getElementById('root').style.display = 'none';
+            document.getElementById('error-fallback').style.display = 'block';
+        };
+
         if ('serviceWorker' in navigator) {
             const swCode = `
-                const CACHE_NAME = 'elite-gym-v9-1';
+                // Changement de version pour forcer la mise à jour du cache
+                const CACHE_NAME = 'elite-gym-v10-repair';
                 const urlsToCache = [
                     'https://cdn.tailwindcss.com',
                     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap',
@@ -43,6 +62,20 @@
                 ];
                 self.addEventListener('install', event => { self.skipWaiting(); event.waitUntil(caches.open(CACHE_NAME).then(cache => Promise.all(urlsToCache.map(url => fetch(url, { mode: 'cors' }).then(res => { if (res.ok) cache.put(url, res); }).catch(e => console.log('Cache fail:', url)))))); });
                 self.addEventListener('fetch', event => { event.respondWith(caches.match(event.request).then(response => { if (response) return response; return fetch(event.request).then(networkResponse => { if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' && networkResponse.type !== 'cors') return networkResponse; const responseToCache = networkResponse.clone(); caches.open(CACHE_NAME).then(cache => { if(event.request.url.startsWith('http')) cache.put(event.request, responseToCache); }); return networkResponse; }).catch(() => null); })); });
+                // Nettoyage des anciens caches
+                self.addEventListener('activate', event => {
+                    event.waitUntil(
+                        caches.keys().then(cacheNames => {
+                            return Promise.all(
+                                cacheNames.map(cacheName => {
+                                    if (cacheName !== CACHE_NAME) {
+                                        return caches.delete(cacheName);
+                                    }
+                                })
+                            );
+                        })
+                    );
+                });
             `;
             try {
                 const blob = new Blob([swCode], { type: 'text/javascript' });
@@ -63,22 +96,24 @@
         } from 'https://esm.sh/lucide-react@0.263.1';
 
         function App() {
-            // -- RESTAURATION DONNÉES --
+            // -- RESTAURATION DONNÉES AVEC SÉCURITÉ --
             const [history, setHistory] = useState(() => {
-                const newKey = localStorage.getItem('elite_history');
-                if (newKey) return JSON.parse(newKey);
-                const oldKey = localStorage.getItem('eliteHybrid_history');
-                return oldKey ? JSON.parse(oldKey) : [];
+                try {
+                    const newKey = localStorage.getItem('elite_history');
+                    if (newKey) return JSON.parse(newKey);
+                    const oldKey = localStorage.getItem('eliteHybrid_history');
+                    return oldKey ? JSON.parse(oldKey) : [];
+                } catch(e) { return []; }
             });
 
             const [userStats, setUserStats] = useState(() => {
-                const saved = localStorage.getItem('elite_userStats');
-                return saved ? JSON.parse(saved) : { bodyWeight: '', lastWeighIn: null, energy: 3 };
+                try {
+                    const saved = localStorage.getItem('elite_userStats');
+                    return saved ? JSON.parse(saved) : { bodyWeight: '', lastWeighIn: null, energy: 3 };
+                } catch(e) { return { bodyWeight: '', lastWeighIn: null, energy: 3 }; }
             });
 
             const [programs, setPrograms] = useState(() => {
-                const saved = localStorage.getItem('elite_programs');
-                if (saved) return JSON.parse(saved);
                 const defaults = {
                     PUSH: { id: 'PUSH', title: "Séance Push", color: "from-blue-600 to-cyan-500", exercises: [
                         { id: 'p1', name: 'Développé Couché Barre', sets: '6', reps: '5', target: 'Force' },
@@ -99,28 +134,37 @@
                         { id: 'h2', name: 'Leg Extension', sets: '3', reps: '10', target: 'Quads' }
                     ]}
                 };
+
+                try {
+                    const saved = localStorage.getItem('elite_programs');
+                    if (saved) {
+                        const parsedSaved = JSON.parse(saved);
+                        // FUSION INTELLIGENTE : Si HYBRID manque dans la sauvegarde, on le remet depuis defaults
+                        if (!parsedSaved.HYBRID) {
+                            return { ...parsedSaved, HYBRID: defaults.HYBRID };
+                        }
+                        return parsedSaved;
+                    }
+                } catch(e) { console.log('Reset programs due to error'); }
+                
                 return defaults;
             });
 
             // -- ÉTATS INTERFACE --
             const [activeTab, setActiveTab] = useState('dashboard');
             const [selectedSessionType, setSelectedSessionType] = useState(() => localStorage.getItem('elite_selectedSessionType') || null);
-            const [sessionLogs, setSessionLogs] = useState(() => JSON.parse(localStorage.getItem('elite_currentSessionLogs')) || {});
+            const [sessionLogs, setSessionLogs] = useState(() => {
+                try { return JSON.parse(localStorage.getItem('elite_currentSessionLogs')) || {}; } catch { return {}; }
+            });
             const [circuitRounds, setCircuitRounds] = useState(() => localStorage.getItem('elite_circuitRounds') || '');
             
             const [isEditMode, setIsEditMode] = useState(false);
             const [expandedHistoryId, setExpandedHistoryId] = useState(null);
             const [newExoName, setNewExoName] = useState("");
-            
-            // Gestion Création Programme
             const [showProgramModal, setShowProgramModal] = useState(false);
             const [newProgramTitle, setNewProgramTitle] = useState("");
-
-            // Gestion Résumé de Fin
             const [showSummary, setShowSummary] = useState(false);
             const [lastSessionSummary, setLastSessionSummary] = useState(null);
-
-            // Gestion Analytics Dynamiques
             const [analyticsExo, setAnalyticsExo] = useState(null);
 
             // -- SAUVEGARDE --
@@ -178,6 +222,7 @@
             const handleFinishSession = () => {
                 if (!selectedSessionType) return;
                 const prog = programs[selectedSessionType];
+                if (!prog) { setSelectedSessionType(null); return; } // Sécurité anti-crash
                 let recordsBroken = 0;
                 
                 const processExercises = (exList) => {
@@ -215,33 +260,29 @@
                     circuit: circuitInfo 
                 };
                 
-                // Sauvegarde
                 const newHistory = [...history, newLog];
                 setHistory(newHistory);
                 
-                // Préparation du Résumé
                 setLastSessionSummary({
                     log: newLog,
                     records: recordsBroken,
                     mainExerciseId: processedExercises.length > 0 ? processedExercises[0].id : null
                 });
-                setShowSummary(true); // Affiche le résumé
+                setShowSummary(true);
 
-                // Reset
                 setSessionLogs({}); 
                 setCircuitRounds(''); 
                 setSelectedSessionType(null); 
                 localStorage.removeItem('elite_selectedSessionType'); 
             };
 
-            // --- GESTION PROGRAMMES ---
             const handleCreateProgram = () => {
                 if (!newProgramTitle) return;
                 const newId = `PROG_${Date.now()}`;
                 const newProg = { 
                     id: newId, 
                     title: newProgramTitle, 
-                    color: "from-purple-600 to-indigo-500", // Couleur par défaut pour custom
+                    color: "from-purple-600 to-indigo-500", 
                     exercises: [] 
                 };
                 setPrograms({ ...programs, [newId]: newProg });
@@ -258,7 +299,6 @@
                 }
             };
 
-            // --- GESTION EXERCICES DANS SÉANCE ---
             const updateExerciseName = (progId, exId, newName) => {
                 const updatedPrograms = { ...programs };
                 const prog = updatedPrograms[progId];
@@ -298,7 +338,6 @@
 
             // --- VUES ---
             
-            // 1. DASHBOARD
             const renderDashboard = () => React.createElement("div", { className: "p-4 space-y-6 animate-fadeIn pb-24" },
                 needsWeighIn() ? React.createElement("div", { className: "bg-gradient-to-r from-pink-600 to-rose-500 p-5 rounded-2xl shadow-lg border border-pink-400/30" }, React.createElement("h2", { className: "text-white font-bold flex items-center gap-2 mb-3" }, React.createElement(Scale, { className: "text-white" }), " Pesée Hebdo"), React.createElement("div", { className: "flex gap-2" }, React.createElement("input", { type: "number", placeholder: "Kg", className: "bg-white text-pink-600 font-bold rounded-lg p-2 w-24 text-center focus:outline-none", onBlur: (e) => e.target.value && handleWeighIn(e.target.value) }), React.createElement("button", { className: "text-white text-xs underline opacity-80", onClick: () => handleWeighIn(userStats.bodyWeight || '0') }, "Plus tard"))) : React.createElement("div", { className: "flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-xl" }, React.createElement("div", { className: "flex items-center gap-2 text-gray-400 text-sm" }, React.createElement(Scale, { size: 16 }), " Poids : ", React.createElement("span", { className: "text-white font-bold" }, userStats.bodyWeight, " kg")), React.createElement("button", { onClick: () => setUserStats({...userStats, lastWeighIn: null}), className: "text-xs text-blue-500" }, "Modifier")),
                 React.createElement("div", { className: "bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden" }, React.createElement("h2", { className: "text-white font-bold flex items-center gap-2 mb-4" }, React.createElement(BatteryCharging, { className: "text-emerald-400" }), " Forme du jour"), React.createElement("input", { type: "range", min: "1", max: "5", value: userStats.energy, onChange: e => setUserStats({...userStats, energy: parseInt(e.target.value)}), className: "w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" }), React.createElement("div", { className: "text-center text-emerald-400 font-bold mt-2 text-sm" }, `Niveau ${userStats.energy}/5`)),
@@ -309,7 +348,7 @@
                     ),
                     Object.entries(programs).map(([key, prog]) => React.createElement("div", { key: key, className: "relative group" }, 
                         React.createElement("button", { onClick: () => { setSelectedSessionType(key); setActiveTab('session'); }, className: `w-full p-4 rounded-xl bg-gradient-to-r ${prog.color} text-white font-bold shadow-lg transform transition-all active:scale-95 flex justify-between items-center text-left` }, 
-                            React.createElement("div", null, React.createElement("span", null, prog.title), React.createElement("p", { className: "text-[10px] opacity-70 font-normal mt-1" }, prog.isCircuit ? "Circuit" : `${(prog.isCircuit ? prog.isolation : prog.exercises).length} Exercices`)), 
+                            React.createElement("div", null, React.createElement("span", null, prog.title), React.createElement("p", { className: "text-[10px] opacity-70 font-normal mt-1" }, prog.isCircuit ? "Circuit" : `${((prog.isCircuit ? prog.isolation : prog.exercises) || []).length} Exercices`)), 
                             React.createElement(ArrowRight, { className: "opacity-60" })
                         ),
                         React.createElement("button", { onClick: (e) => handleDeleteProgram(key, e), className: "absolute top-2 right-2 p-2 bg-black/20 hover:bg-red-600/80 rounded-full text-white" }, React.createElement(Trash2, { size: 14 }))
@@ -317,7 +356,6 @@
                 )
             );
 
-            // 2. SESSION
             const renderSession = () => {
                 const prog = programs[selectedSessionType];
                 if (!prog) return null;
@@ -362,15 +400,12 @@
                 );
             };
 
-            // 3. ANALYTICS (Dynamique)
             const renderAnalytics = () => {
-                // Trouver tous les exercices présents dans l'historique
                 const allExosInHistory = history.flatMap(h => h.exercises).reduce((acc, ex) => {
                     if (!acc.some(e => e.id === ex.id)) acc.push({ id: ex.id, name: ex.name });
                     return acc;
                 }, []);
 
-                // Sélectionner par défaut le premier (ou le dernier travaillé)
                 if (!analyticsExo && allExosInHistory.length > 0) {
                     setAnalyticsExo(allExosInHistory[allExosInHistory.length - 1].id);
                 }
@@ -382,7 +417,6 @@
 
                 return React.createElement("div", { className: "p-4 space-y-6 pb-24 animate-fadeIn" }, 
                     React.createElement("h2", { className: "text-2xl font-bold text-white mb-6" }, "Suivi Performance"),
-                    
                     allExosInHistory.length > 0 ? React.createElement("div", { className: "space-y-4" },
                         React.createElement("div", { className: "relative" },
                             React.createElement("select", { 
@@ -397,11 +431,9 @@
                 );
             };
 
-            // 4. RÉSUMÉ DE FIN DE SÉANCE (Modal)
             const renderSummary = () => {
                 if (!lastSessionSummary) return null;
                 const { log, records, mainExerciseId } = lastSessionSummary;
-                
                 const getProgression = (exoId) => history.filter(h => h.exercises && h.exercises.find(e => e.id === exoId)).map(h => {
                     const exData = h.exercises.find(e => e.id === exoId);
                     return { date: h.date, val: exData.weight || 0 };
@@ -411,7 +443,6 @@
                     React.createElement("div", { className: "p-6 min-h-screen flex flex-col items-center justify-center text-center space-y-6" },
                         React.createElement(Trophy, { size: 64, className: "text-yellow-400 animate-pop" }),
                         React.createElement("h2", { className: "text-3xl font-black text-white italic" }, "SÉANCE TERMINÉE"),
-                        
                         React.createElement("div", { className: "grid grid-cols-2 gap-4 w-full" },
                             React.createElement("div", { className: "bg-slate-900 p-4 rounded-xl border border-slate-800" },
                                 React.createElement("p", { className: "text-xs text-gray-500 uppercase" }, "Records"),
@@ -422,30 +453,19 @@
                                 React.createElement("p", { className: "text-2xl font-bold text-white" }, log.exercises.length)
                             )
                         ),
-
                         mainExerciseId && React.createElement("div", { className: "w-full" },
                             React.createElement("p", { className: "text-left text-sm text-gray-400 mb-2" }, "Progression sur l'exercice principal :"),
                             React.createElement(ChartCard, { title: "", color: "text-blue-400", data: getProgression(mainExerciseId), unit: "kg" })
                         ),
-
-                        React.createElement("button", { 
-                            onClick: () => { setShowSummary(false); setActiveTab('dashboard'); },
-                            className: "w-full bg-white text-black font-black py-4 rounded-xl shadow-xl hover:bg-gray-200 mt-4" 
-                        }, "RETOUR ACCUEIL")
+                        React.createElement("button", { onClick: () => { setShowSummary(false); setActiveTab('dashboard'); }, className: "w-full bg-white text-black font-black py-4 rounded-xl shadow-xl hover:bg-gray-200 mt-4" }, "RETOUR ACCUEIL")
                     )
                 );
             };
 
-            // MODAL CRÉATION PROGRAMME
             const renderCreateModal = () => React.createElement("div", { className: "fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" },
                 React.createElement("div", { className: "bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 space-y-4" },
                     React.createElement("h3", { className: "text-white font-bold text-lg" }, "Nouveau Programme"),
-                    React.createElement("input", { 
-                        placeholder: "Nom (ex: Jambes Lourd)", 
-                        value: newProgramTitle, 
-                        onChange: e => setNewProgramTitle(e.target.value),
-                        className: "w-full bg-black border border-slate-700 rounded p-3 text-white focus:border-blue-500 outline-none"
-                    }),
+                    React.createElement("input", { placeholder: "Nom (ex: Jambes Lourd)", value: newProgramTitle, onChange: e => setNewProgramTitle(e.target.value), className: "w-full bg-black border border-slate-700 rounded p-3 text-white focus:border-blue-500 outline-none" }),
                     React.createElement("div", { className: "flex gap-2" },
                         React.createElement("button", { onClick: () => setShowProgramModal(false), className: "flex-1 text-slate-400 py-3" }, "Annuler"),
                         React.createElement("button", { onClick: handleCreateProgram, className: "flex-1 bg-blue-600 text-white font-bold rounded-xl py-3" }, "Créer")
@@ -472,7 +492,7 @@
             );
 
             return React.createElement("div", { className: "min-h-screen bg-black text-slate-200 font-sans" },
-                React.createElement("div", { className: "bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-4 py-3 border-b border-slate-900 flex justify-between items-center" }, React.createElement("h1", { className: "font-black text-lg italic bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent" }, "ELITE HYBRID v9.1"), React.createElement("div", { className: "flex items-center gap-2" }, React.createElement("span", { className: "text-xs font-mono text-gray-500" }, new Date().toLocaleDateString()))),
+                React.createElement("div", { className: "bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-4 py-3 border-b border-slate-900 flex justify-between items-center" }, React.createElement("h1", { className: "font-black text-lg italic bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent" }, "ELITE HYBRID v10"), React.createElement("div", { className: "flex items-center gap-2" }, React.createElement("span", { className: "text-xs font-mono text-gray-500" }, new Date().toLocaleDateString()))),
                 React.createElement("div", { className: "mx-auto max-w-md" }, 
                     activeTab === 'dashboard' && !selectedSessionType && renderDashboard(), 
                     activeTab === 'session' && selectedSessionType && renderSession(), 
