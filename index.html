@@ -31,7 +31,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             const swCode = `
-                const CACHE_NAME = 'elite-gym-v8-fix';
+                const CACHE_NAME = 'elite-gym-v8-fix-2';
                 const urlsToCache = [
                     'https://cdn.tailwindcss.com',
                     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap',
@@ -57,27 +57,19 @@
             Save, Activity, TrendingUp, TrendingDown, Scale, Calendar, 
             ChevronDown, ChevronUp, BarChart2, Dumbbell, History, 
             Flame, BatteryCharging, ArrowRight,
-            Plus, Trash2, X, Settings, Edit2, CheckCircle
+            Plus, Trash2, X, Settings, Edit2, CheckCircle, Minus
         } from 'https://esm.sh/lucide-react@0.263.1';
 
         function App() {
             // -- RESTAURATION DONNÉES & MIGRATION --
-            
-            // 1. Historique : On cherche la V8, sinon on récupère la V7 (Legacy)
             const [history, setHistory] = useState(() => {
                 const newKey = localStorage.getItem('elite_history');
                 if (newKey) return JSON.parse(newKey);
-                
-                // MIGRATION : On va chercher les données de l'ancienne version
                 const oldKey = localStorage.getItem('eliteHybrid_history');
-                if (oldKey) {
-                    console.log("Migration réussie : Historique retrouvé !");
-                    return JSON.parse(oldKey);
-                }
+                if (oldKey) return JSON.parse(oldKey);
                 return [];
             });
 
-            // 2. Stats User
             const [userStats, setUserStats] = useState(() => {
                 const newStats = localStorage.getItem('elite_userStats');
                 if (newStats) return JSON.parse(newStats);
@@ -85,11 +77,9 @@
                 return oldStats ? JSON.parse(oldStats) : { bodyWeight: '', lastWeighIn: null, energy: 3 };
             });
 
-            // 3. Programmes (Merge défaut + custom ancien)
             const [programs, setPrograms] = useState(() => {
                 const saved = localStorage.getItem('elite_programs');
                 if (saved) return JSON.parse(saved);
-
                 const defaults = {
                     PUSH: { id: 'PUSH', title: "Séance Push", color: "from-blue-600 to-cyan-500", exercises: [
                         { id: 'p1', name: 'Développé Couché Barre', sets: '6', reps: '5', target: 'Force' },
@@ -110,14 +100,9 @@
                         { id: 'h2', name: 'Leg Extension', sets: '3', reps: '10', target: 'Quads' }
                     ]}
                 };
-
-                // Récupération des programmes customs V7
                 const oldCustoms = localStorage.getItem('eliteHybrid_customPrograms');
                 if (oldCustoms) {
-                    try {
-                        const parsedOld = JSON.parse(oldCustoms);
-                        return { ...defaults, ...parsedOld };
-                    } catch(e) { return defaults; }
+                    try { return { ...defaults, ...JSON.parse(oldCustoms) }; } catch(e) { return defaults; }
                 }
                 return defaults;
             });
@@ -131,9 +116,9 @@
             const [isEditMode, setIsEditMode] = useState(false);
             const [expandedHistoryId, setExpandedHistoryId] = useState(null);
             const [newExoName, setNewExoName] = useState("");
-            const [showCreateModal, setShowCreateModal] = useState(false); // Gardé pour compatibilité mais moins utile avec edit mode
+            const [showCreateModal, setShowCreateModal] = useState(false); 
 
-            // -- EFFETS DE SAUVEGARDE CONTINUE --
+            // -- EFFETS DE SAUVEGARDE --
             useEffect(() => { localStorage.setItem('elite_activeTab', activeTab); }, [activeTab]);
             useEffect(() => { 
                 if(selectedSessionType) localStorage.setItem('elite_selectedSessionType', selectedSessionType);
@@ -156,31 +141,42 @@
                 });
             };
 
-            // Comparateur Intelligent (Vert/Rouge)
+            // Fonction helper pour calculer le meilleur set (Volume max sur une série)
+            const getBestSetVolume = (sets) => {
+                if (!sets || sets.length === 0) return 0;
+                return sets.reduce((max, s) => {
+                    const vol = (parseFloat(s?.weight) || 0) * (parseFloat(s?.reps) || 0);
+                    return vol > max ? vol : max;
+                }, 0);
+            };
+
+            // Comparateur Intelligent CORRIGÉ (Best Set vs Best Set)
             const getProgressionStatus = (exId) => {
                 const currentLogs = sessionLogs[exId];
                 if (!currentLogs || currentLogs.length === 0) return null;
 
-                // Calcul du Volume Actuel (Total Kg * Reps)
-                const currentVolume = currentLogs.reduce((acc, log) => acc + ((parseFloat(log?.weight)||0) * (parseFloat(log?.reps)||0)), 0);
-                if (currentVolume === 0) return null;
+                // 1. Calculer le meilleur set de la séance en cours
+                const currentBestVol = getBestSetVolume(currentLogs);
+                if (currentBestVol === 0) return null;
 
-                // Chercher le dernier volume historique pour cet exo
+                // 2. Trouver la dernière séance historique
                 const lastSessionWithExo = history.slice().reverse().find(h => h.exercises.some(e => e.id === exId));
                 if (!lastSessionWithExo) return 'neutral'; 
 
                 const lastExoData = lastSessionWithExo.exercises.find(e => e.id === exId);
-                let lastVolume = 0;
+                let lastBestVol = 0;
                 
-                // Compatible avec ancien (weight simple) et nouveau (setsData) format
+                // 3. Calculer le meilleur set de la dernière séance
                 if (lastExoData.setsData && lastExoData.setsData.length > 0) {
-                    lastVolume = lastExoData.setsData.reduce((acc, log) => acc + ((parseFloat(log?.weight)||0) * (parseFloat(log?.reps)||0)), 0);
+                    lastBestVol = getBestSetVolume(lastExoData.setsData);
                 } else {
-                    lastVolume = (lastExoData.weight || 0) * (lastExoData.reps || 10) * (lastExoData.sets || 3); // Approximation si vieilles données
+                    // Fallback pour les anciennes données (on approxime un set unique)
+                    lastBestVol = (lastExoData.weight || 0) * (lastExoData.reps || 0);
                 }
 
-                if (currentVolume > lastVolume) return 'better';
-                if (currentVolume < lastVolume) return 'worse';
+                // 4. Comparaison
+                if (currentBestVol > lastBestVol) return 'better';
+                if (currentBestVol < lastBestVol) return 'worse';
                 return 'neutral';
             };
 
@@ -202,6 +198,7 @@
                     return exList.map(ex => {
                         const logs = sessionLogs[ex.id] || [];
                         const validLogs = logs.filter(l => l && (l.weight || l.reps));
+                        // On garde le poids max pour le graph simplifié
                         const maxWeight = validLogs.length > 0 ? Math.max(...validLogs.map(l => parseFloat(l.weight) || 0)) : 0;
                         return { id: ex.id, name: ex.name, setsData: validLogs, weight: maxWeight };
                     });
@@ -218,7 +215,7 @@
                 setSessionLogs({}); 
                 setCircuitRounds(''); 
                 setSelectedSessionType(null); 
-                localStorage.removeItem('elite_selectedSessionType'); // Clean exit
+                localStorage.removeItem('elite_selectedSessionType'); 
                 setActiveTab('analysis'); 
             };
 
@@ -287,7 +284,8 @@
                                     : React.createElement("div", { className: "flex items-center gap-2" },
                                         React.createElement("h3", { className: "font-bold text-gray-200 text-sm" }, ex.name),
                                         status === 'better' && React.createElement(TrendingUp, { size: 16, className: "text-green-500" }),
-                                        status === 'worse' && React.createElement(TrendingDown, { size: 16, className: "text-red-500" })
+                                        status === 'worse' && React.createElement(TrendingDown, { size: 16, className: "text-red-500" }),
+                                        status === 'neutral' && React.createElement(Minus, { size: 16, className: "text-gray-500" })
                                     ),
                                     !isEditMode && React.createElement("span", { className: "text-[10px] text-gray-400 bg-slate-800 px-2 py-1 rounded" }, `${ex.sets}x${ex.reps}`)
                                 ),
